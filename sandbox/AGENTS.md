@@ -34,7 +34,8 @@ tsc -p tsconfig.build.json     # Full build with output
 # Building is slow and unnecessary for development/testing - tsx runs TypeScript directly
 
 # Testing
-npm test                       # Run tests (placeholder - no unit tests)
+npm test                       # Run unit + e2e (full suite, local dev)
+npm run test:unit              # Run unit tests only (tests/unit/*.test.ts via node --test + tsx)
 npm run test:e2e               # Run E2E platform tests (deploys to Apify)
 
 # Apify CLI
@@ -45,11 +46,20 @@ apify push                     # Deploy to Apify platform
 
 ### Running a Single Test
 
-Currently there are no unit tests. The E2E test suite deploys to Apify platform and tests all endpoints:
+Unit tests live in `tests/unit/*.test.ts` and run via Node's built-in test runner with `tsx` as the loader (no extra deps). The Dockerfile runs `npm run test:unit` after `npm run build`, so a regression in pure-logic code fails the build.
 
 ```bash
+# Run all unit tests
+npm run test:unit
+
+# Run a single unit test file
+node --import tsx --test tests/unit/node-deps.test.ts
+
 # Run E2E platform tests (deploys Actor, runs tests, cleans up)
 npm run test:e2e
+
+# Run the full suite (unit + e2e)
+npm test
 ```
 
 ## Code Style Guidelines
@@ -120,7 +130,32 @@ app.post('/endpoint', async (req: Request, res: Response) => {
 ### Testing
 
 - Tests in `tests/` directory with `.ts` extension, executable with `tsx`
-- E2E platform test suite: `tests/e2e.ts` (deploys to Apify, runs 47 endpoint tests, cleans up)
+- **Unit tests:** files matching `tests/unit/*.test.ts`, run via `npm run test:unit` (Node's built-in `node:test` runner via `node --import tsx`, no extra deps). Also run during the Docker build.
+- **E2E platform test suite:** `tests/e2e.ts` (deploys to Apify, runs endpoint tests, cleans up)
+
+**When to add a unit test:** any new pure function (parser, validator, transform) — anything you can exercise without spinning up the Actor, Express, or external services. Prefer unit tests for I/O-free logic; reserve E2E for endpoint behavior. Bug fixes in pure logic should land with a regression test.
+
+**How to add a unit test:**
+
+1. Create `tests/unit/<module>.test.ts` next to existing test files.
+2. Use `node:test` (`describe`/`it`) and `node:assert/strict`:
+
+    ```typescript
+    /* eslint-disable @typescript-eslint/no-floating-promises -- node:test's describe/it return promises by design */
+    import assert from 'node:assert/strict';
+    import { describe, it } from 'node:test';
+
+    import { myFn } from '../../src/my-module.js'; // .js extension required
+
+    describe('myFn', () => {
+        it('does the thing', () => {
+            assert.deepEqual(myFn('input'), { ok: true });
+        });
+    });
+    ```
+
+3. Run `npm run test:unit` to verify. Test files are picked up by the `tests/unit/*.test.ts` glob — no further wiring needed.
+4. Keep tests pure: no network, no filesystem writes, no `apify`/`Actor.init()`. If you need fixtures, inline them in the test file.
 
 ## What are Apify Actors?
 

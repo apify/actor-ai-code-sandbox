@@ -29,10 +29,10 @@
             },
             "nodeDependencies": {
                 "title": "Node.js dependencies",
-                "type": "object",
-                "description": "npm package.json dependencies object for JavaScript and TypeScript code execution (/sandbox/js-ts). Paste your dependencies in npm format. Example: {\"zod\": \"^3.0\", \"axios\": \"latest\"}",
-                "editor": "json",
-                "prefill": {}
+                "type": "string",
+                "description": "npm packages to install for JavaScript and TypeScript code execution (/sandbox/js-ts).\n\nAccepts either format:\n- **One `package@version` per line** (npm CLI style):\n  ```\n  zod@^3.0\n  axios@latest\n  lodash\n  ```\n  Lines without `@version` default to `latest`. Blank lines and `#` comments are ignored. Scoped packages like `@types/node@^20` are supported.\n- **JSON object** (package.json `dependencies` style):\n  ```\n  {\"zod\": \"^3.0\", \"axios\": \"latest\"}\n  ```",
+                "editor": "textarea",
+                "prefill": "# One package@version per line. Omit @version for latest.\n# zod@^3.0\n# axios@latest\n# @types/node@^20"
             },
             "pythonRequirementsTxt": {
                 "title": "Python requirements",

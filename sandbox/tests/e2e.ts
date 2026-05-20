@@ -933,9 +933,7 @@ async function main(): Promise<void> {
         console.log(`${colors.green}ℹ${colors.reset} Step 1: Preparing Actor input with dependencies...`);
 
         const input = {
-            nodeDependencies: {
-                zod: '^3.22.0',
-            },
+            nodeDependencies: 'zod@^3.22.0',
             pythonRequirementsTxt: 'numpy>=1.24.0',
             envVars: 'TEST_E2E_SECRET=hunter2-do-not-leak',
             initShellScript: [

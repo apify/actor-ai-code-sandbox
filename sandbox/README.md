@@ -371,9 +371,16 @@ The sandbox provides isolated execution environments for different code language
 
 Specify dependencies to install via Actor input:
 
-- **Node.js Dependencies**: npm packages for JS/TS code execution in native npm format
-    - Input as a JSON object: `{"package-name": "version", ...}`
-    - Example: `{"zod": "^3.0", "axios": "latest", "lodash": "4.17.21"}`
+- **Node.js Dependencies**: npm packages for JS/TS code execution. Accepts either format:
+    - **One `package@version` per line** (npm CLI style):
+        ```
+        zod@^3.0
+        axios@latest
+        lodash
+        @types/node@^20
+        ```
+        Lines without `@version` default to `latest`. Blank lines and `#` comments are ignored.
+    - **JSON object** (package.json `dependencies` style): `{"zod": "^3.0", "axios": "latest"}`
 - **Python Requirements**: pip packages for Python code execution in requirements.txt format
     - Input as multi-line text: one package per line with optional version specifiers
     - Example:

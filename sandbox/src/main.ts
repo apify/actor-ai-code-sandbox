@@ -15,6 +15,7 @@ import { SANDBOX_DIR } from './consts.js';
 import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
+import { parseNodeDependencies } from './node-deps.js';
 import {
     appendFile,
     createDirectory,
@@ -68,9 +69,11 @@ const input = await Actor.getInput<ActorInput>();
 const userEnvVars = parseEnvVars(input?.envVars);
 setUserEnvVars(userEnvVars);
 
+const nodeDependencies = parseNodeDependencies(input?.nodeDependencies);
+
 log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
-    hasNodeDependencies: !!input?.nodeDependencies && Object.keys(input.nodeDependencies).length > 0,
+    hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
     hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
@@ -102,7 +105,7 @@ if (restoredFromMigration) {
     log.info('Setting up execution environment...');
     setupResult = await setupExecutionEnvironment({
         skills: input?.skills,
-        nodeDependencies: input?.nodeDependencies,
+        nodeDependencies,
         pythonRequirementsTxt: input?.pythonRequirementsTxt,
     });
 }

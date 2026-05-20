@@ -22,11 +22,11 @@ export interface ActorInput {
     skills?: string[];
 
     /**
-     * Node.js dependencies object for JavaScript and TypeScript code execution
-     * Format: { "package-name": "version", ... }
-     * Example: { "zod": "^3.0", "axios": "latest" }
+     * Node.js dependencies for JavaScript and TypeScript code execution.
+     * Accepts either npm CLI-style lines (one `package@version` per line, missing
+     * `@version` defaults to `latest`) or a JSON object (`{ "pkg": "version" }`).
      */
-    nodeDependencies?: Record<string, string>;
+    nodeDependencies?: string;
 
     /**
      * Python requirements in requirements.txt format for Python code execution
