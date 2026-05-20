@@ -15,6 +15,7 @@ import { SANDBOX_DIR } from './consts.js';
 import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
+import { writeMcpConfig } from './mcp-connections.js';
 import { parseNodeDependencies } from './node-deps.js';
 import {
     appendFile,
@@ -77,7 +78,14 @@ log.info('Actor input retrieved', {
     hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
+    mcpConnectionCount: input?.mcpConnections?.length ?? 0,
 });
+
+// Write /sandbox/mcp.json with the configured MCP Connector proxies so
+// tools like `mcpc connect` find them as soon as the shell opens.
+if (!isLocalMode) {
+    writeMcpConfig(input?.mcpConnections);
+}
 
 // Check for migration state and restore if available
 let restoredFromMigration = false;
