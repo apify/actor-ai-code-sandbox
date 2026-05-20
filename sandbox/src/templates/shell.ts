@@ -67,10 +67,13 @@ echo -e "  - Claude:     \$CLAUDE_VER"
 echo -e "  - OpenCode:   \$OPENCODE_VER"
 echo -e "  - CWD:        \$(pwd)"
 if [ -n "\$VIRTUAL_ENV" ]; then
-    echo -e "  - Venv:     Active (\$VIRTUAL_ENV)"
+    echo -e "  - Venv:       Active (\$VIRTUAL_ENV)"
 fi
 echo ""
 echo -e "\${BLUE}Documentation:\${NC}"
+if [ -n "\$ACTOR_WEB_SERVER_URL" ]; then
+    echo -e "  - Actor page:        \$ACTOR_WEB_SERVER_URL"
+fi
 echo -e "  - Homepage:          https://apify.com/apify/ai-sandbox"
 echo -e "  - Git repo:          https://github.com/apify/actor-ai-sandbox"
 echo -e "  - AI tools:          Claude Code & OpenCode configured with Apify OpenRouter"
