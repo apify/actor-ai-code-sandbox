@@ -4,104 +4,120 @@ Containerized sandbox environment for AI coding operations. Connect through HTTP
 
 ## Quick links
 
+- **Landing page**: <%= serverUrl %>/
 - **Shell terminal**: <%= serverUrl %>/shell/
 - **Health check**: <%= serverUrl %>/health
 - **MCP endpoint**: <%= serverUrl %>/mcp
 
 ## Connect with MCP
 
+URL:
+
+```
+<%= serverUrl %>/mcp
+```
+
+Claude Code:
+
 ```bash
 claude mcp add --transport http sandbox <%= serverUrl %>/mcp
 ```
 
-## Core HTTP endpoints
+## Code execution
 
-### Execute commands or code
+**POST** `<%= serverUrl %>/exec` — run shell commands or execute code snippets.
 
-**POST** `<%= serverUrl %>/exec`
+**Supported languages:** `js`, `javascript`, `ts`, `typescript`, `py`, `python`, `bash`, `sh` (or omit for shell).
 
-Run shell commands or execute code snippets.
+### Run bash command
 
-**Shell command:**
-
-```json
-{
-    "command": "ls -la",
-    "cwd": "/sandbox",
-    "timeoutSecs": 5
-}
+```bash
+curl -X POST <%= serverUrl %>/exec \
+  -H "Content-Type: application/json" \
+  -d '{"command": "ls -la", "language": "bash", "cwd": "/sandbox", "timeoutSecs": 5}'
 ```
 
-**Code execution:**
+### Run Python code
 
-```json
-{
-    "command": "print('hello')",
-    "language": "py",
-    "timeoutSecs": 10
-}
+```bash
+curl -X POST <%= serverUrl %>/exec \
+  -H "Content-Type: application/json" \
+  -d '{"command": "print(\"hello\")", "language": "py", "timeoutSecs": 10}'
 ```
 
-**Supported languages:** `js`, `javascript`, `ts`, `typescript`, `py`, `python`, `bash`, `sh` (or omit for shell)
+### Run TypeScript code
+
+```bash
+curl -X POST <%= serverUrl %>/exec \
+  -H "Content-Type: application/json" \
+  -d '{"command": "console.log(\"hello\")", "language": "ts", "timeoutSecs": 10}'
+```
 
 ## Filesystem endpoints
 
 Direct file operations using HTTP methods. All paths relative to `/sandbox`.
 
-- **GET** `/fs/{path}` - Read file or list directory
-    - Query: `?download=1` for ZIP download of directories
-    - Example: `GET /fs/app/log.txt` or `GET /fs/app?download=1`
+### Read file or list directory
 
-- **PUT** `/fs/{path}` - Write/replace file (raw body)
-    - Example: `PUT /fs/config.json` with JSON body
-
-- **POST** `/fs/{path}?mkdir=1` - Create directory
-    - Example: `POST /fs/project/src?mkdir=1`
-
-- **POST** `/fs/{path}?append=1` - Append to file (raw body)
-    - Example: `POST /fs/log.txt?append=1` with text body
-
-- **DELETE** `/fs/{path}` - Delete file or directory
-    - Query: `?recursive=1` for directories
-    - Example: `DELETE /fs/temp?recursive=1`
-
-- **HEAD** `/fs/{path}` - Get file metadata (headers only)
-    - Returns: Content-Type, Content-Length, Last-Modified, etc.
-    - Example: `HEAD /fs/data.json`
-
-## Code examples
-
-### TypeScript/Node.js
-
-```typescript
-const baseUrl = '<%= serverUrl %>';
-const res = await fetch(`${baseUrl}/exec`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({
-        command: 'print("hello")',
-        language: 'py',
-        timeoutSecs: 10,
-    }),
-});
-const json = await res.json();
-console.log(json);
+```bash
+curl <%= serverUrl %>/fs/app/log.txt
 ```
 
-### Python
+### Write or replace file
 
-```python
-import requests
+```bash
+curl -X PUT <%= serverUrl %>/fs/config.json \
+  -H "Content-Type: application/json" \
+  -d '{"key": "value"}'
+```
 
-base_url = "<%= serverUrl %>"
-payload = {
-    "command": "print('hello')",
-    "language": "py",
-    "timeoutSecs": 10
-}
-resp = requests.post(f"{base_url}/exec", json=payload, timeout=15)
-resp.raise_for_status()
-print(resp.json())
+### Create directory
+
+```bash
+curl -X POST <%= serverUrl %>/fs/project/src?mkdir=1
+```
+
+### Append to file
+
+```bash
+curl -X POST <%= serverUrl %>/fs/log.txt?append=1 \
+  -d "New log entry"
+```
+
+### Delete file or directory
+
+```bash
+curl -X DELETE <%= serverUrl %>/fs/temp?recursive=1
+```
+
+### Get file metadata
+
+```bash
+curl -I <%= serverUrl %>/fs/data.json
+```
+
+## Proxy Mappings
+
+Map local web servers to paths. Changes are applied immediately and persist across restarts.
+
+### Get current mappings
+
+```bash
+curl <%= serverUrl %>/proxy-config
+```
+
+### Add a mapping
+
+```bash
+curl -X POST <%= serverUrl %>/proxy-config \
+  -H "Content-Type: application/json" \
+  -d '{"path": "/openclaw", "target": "http://127.0.0.1:18789/openclaw"}'
+```
+
+### Remove a mapping
+
+```bash
+curl -X DELETE <%= serverUrl %>/proxy-config/openclaw
 ```
 
 ## Response format

@@ -332,6 +332,56 @@
             </div>
             </div>
         </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('responseFormat')">
+                <h3>📋 Response format</h3>
+                <button class="collapse-btn" id="responseFormatBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="responseFormat">
+            <p class="muted" style="margin-bottom: 12px;">All <code style="width: auto;">/exec</code> requests return:</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block">{
+    <span class="hl-key">"stdout"</span>: <span class="hl-string">"string"</span>,
+    <span class="hl-key">"stderr"</span>: <span class="hl-string">"string"</span>,
+    <span class="hl-key">"exitCode"</span>: <span class="hl-number">0</span>,
+    <span class="hl-key">"language"</span>: <span class="hl-string">"shell|js|ts|py"</span>
+}</pre>
+            </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('workingDirs')">
+                <h3>📂 Working directories</h3>
+                <button class="collapse-btn" id="workingDirsBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="workingDirs">
+            <ul class="list">
+                <li>Shell commands: <code style="width: auto;">/sandbox</code> (default)</li>
+                <li>JavaScript/TypeScript: <code style="width: auto;">/sandbox/js-ts</code> (default)</li>
+                <li>Python: <code style="width: auto;">/sandbox/py</code> (default)</li>
+                <li>Override with <code style="width: auto;">cwd</code> parameter (must be within <code style="width: auto;">/sandbox</code>)</li>
+            </ul>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('configuration')">
+                <h3>⚙️ Configuration</h3>
+                <button class="collapse-btn" id="configurationBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="configuration">
+            <ul class="list">
+                <li><strong>Idle Timeout</strong>: The container automatically shuts down after inactivity (default 10m).</li>
+                <li><strong>Execution Timeout</strong>: Recommended to set to 0 (infinite) on the platform; use the <code style="width: auto;">idleTimeoutSeconds</code> input to control lifecycle.</li>
+            </ul>
+            </div>
+        </section>
     </main>
 
     <script>
