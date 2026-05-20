@@ -1,5 +1,10 @@
 import { log } from 'apify';
 
+/**
+ * Parse a `{ "package": "version" }` object. Coerces numeric versions to
+ * strings and null/empty values to `latest`; malformed JSON degrades to `{}`
+ * with a warning so a single bad character does not abort the run.
+ */
 const parseJsonObject = (raw: string): Record<string, string> => {
     let parsed: unknown;
     try {
