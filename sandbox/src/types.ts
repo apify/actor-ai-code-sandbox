@@ -61,4 +61,12 @@ export interface ActorInput {
      * Example: [{ "path": "/openclaw", "target": "http://127.0.0.1:18789/openclaw" }]
      */
     proxyMappings?: ProxyMapping[];
+
+    /**
+     * MCP Connector IDs the Actor can use. At runtime the platform exposes
+     * each Connector as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`,
+     * and the sandbox writes the list to `/sandbox/mcp.json` on startup
+     * so tools like `mcpc connect` can pick them up.
+     */
+    mcpConnections?: string[];
 }

@@ -86,6 +86,15 @@
                 },
                 "default": [],
                 "prefill": [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
+            },
+            "mcpConnections": {
+                "title": "MCP Connections",
+                "type": "array",
+                "description": "MCP Connectors the sandbox can call on your behalf — for example Slack, Notion, GitHub, or any other MCP server you have authorized in Settings > API & Integrations > MCP Connectors. At runtime the platform injects your credentials and exposes each Connector as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`. The sandbox writes the full list to `/sandbox/mcp.json` on startup so tools like `mcpc connect` can pick them up immediately.",
+                "resourceType": "mcpConnector",
+                "mcpServers": [{ "url": "*" }],
+                "editor": "resourcePicker",
+                "default": []
             }
         },
 
