@@ -87,8 +87,8 @@
         .copy-btn:active { transform: translateY(-50%) scale(0.98); }
         .copy-btn.copied { background: #22c55e; color: #0f172a; }
         .copy-btn.copied::before { content: "Copied!"; opacity: 1; }
-        .example-label { font-weight: 600; color: #cbd5e1; margin-top: 16px; margin-bottom: 4px; }
-        .example-label:first-child { margin-top: 0; }
+        h3.example-label { font-size: 14px; font-weight: 600; color: #cbd5e1; margin-top: 16px; margin-bottom: 4px; line-height: 1.4; }
+        h3.example-label:first-child { margin-top: 0; }
         
         /* Syntax highlighting */
         .hl-command { color: #60a5fa; }
@@ -154,11 +154,10 @@
     <main class="page">
         <header class="hero">
             <div>
-                <p class="eyebrow">Apify AI Sandbox</p>
-                <h1>Landing page</h1>
-                <p class="lead">Connect through HTTP, MCP, or the interactive shell.</p>
+                <h1>Apify AI Sandbox</h1>
+                <p class="lead">Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.</p>
             </div>
-            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <div class="status-badge loading" id="statusBadge">
                     <span class="status-dot"></span>
                     <span id="statusText">Checking...</span>
@@ -172,57 +171,63 @@
         <section class="card">
             <div class="card-header">
                 <h2>🔗 Quick links</h2>
-                <div class="actions">
+                <div class="actions" data-no-md>
                     <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer">Interactive shell</a>
                     <a class="button" href="/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20claude" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #8b5cf6, #a855f7);">Claude Code</a>
                     <a class="button" href="/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20opencode" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #f59e0b, #ef4444);">OpenCode</a>
                     <a class="button secondary" href="/llms.txt" target="_blank" rel="noopener noreferrer">LLMs.txt</a>
                 </div>
             </div>
+            <ul class="list">
+                <li><strong>Landing page</strong>: <a href="<%= serverUrl %>/"><%= serverUrl %>/</a></li>
+                <li><strong>Shell terminal</strong>: <a href="<%= serverUrl %>/shell/"><%= serverUrl %>/shell/</a></li>
+                <li><strong>Health check</strong>: <a href="<%= serverUrl %>/health"><%= serverUrl %>/health</a></li>
+                <li><strong>MCP endpoint</strong>: <a href="<%= serverUrl %>/mcp"><%= serverUrl %>/mcp</a></li>
+            </ul>
         </section>
 
         <section class="card">
-            <h3>📡 Connect with MCP</h3>
-            <p class="muted">URL</p>
+            <h2>📡 Connect with MCP</h2>
+            <h3 class="example-label">URL</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block"><%= serverUrl %>/mcp</pre>
             </div>
             
-            <p class="example-label">Claude Code</p>
+            <h3 class="example-label">Claude Code</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-command">claude</span> <span class="hl-command">mcp</span> <span class="hl-command">add</span> <span class="hl-flag">--transport</span> http sandbox <span class="hl-url"><%= serverUrl %>/mcp</span></pre>
+                <pre class="code-block" data-lang="bash"><span class="hl-command">claude</span> <span class="hl-command">mcp</span> <span class="hl-command">add</span> <span class="hl-flag">--transport</span> http sandbox <span class="hl-url"><%= serverUrl %>/mcp</span></pre>
             </div>
         </section>
 
         <section class="card">
             <div class="collapsible-header" onclick="toggleCollapse('codeExec')">
-                <h3>⚡ Code execution</h3>
+                <h2>⚡ Code execution</h2>
                 <button class="collapse-btn" id="codeExecBtn">Hide</button>
             </div>
             
             <div class="collapsible-content" id="codeExec">
-            <p class="example-label">Run bash command</p>
+            <h3 class="example-label">Run bash command</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "ls -la", "<span class="hl-key">language</span>": "bash", "<span class="hl-key">cwd</span>": "/sandbox", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">5</span>}'</span></pre>
             </div>
 
-            <p class="example-label">Run Python code</p>
+            <h3 class="example-label">Run Python code</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "print(\"hello\")", "<span class="hl-key">language</span>": "py", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">10</span>}'</span></pre>
             </div>
 
-            <p class="example-label">Run TypeScript code</p>
+            <h3 class="example-label">Run TypeScript code</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "console.log(\"hello\")", "<span class="hl-key">language</span>": "ts", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">10</span>}'</span></pre>
             </div>
@@ -231,66 +236,66 @@
 
         <section class="card">
             <div class="collapsible-header" onclick="toggleCollapse('filesystem')">
-                <h3>📁 Filesystem endpoints</h3>
+                <h2>📁 Filesystem endpoints</h2>
                 <button class="collapse-btn" id="filesystemBtn">Hide</button>
             </div>
             
             <div class="collapsible-content" id="filesystem">
             <p class="muted" style="margin-bottom: 12px;">Direct file operations using HTTP methods. All paths relative to /sandbox.</p>
             
-            <p class="example-label">Read file or list directory</p>
+            <h3 class="example-label">Read file or list directory</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/fs/app/log.txt</span></pre>
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/fs/app/log.txt</span></pre>
             </div>
 
-            <p class="example-label">Write or replace file</p>
+            <h3 class="example-label">Write or replace file</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">PUT</span> <span class="hl-url"><%= serverUrl %>/fs/config.json</span> \
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">PUT</span> <span class="hl-url"><%= serverUrl %>/fs/config.json</span> \
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">key</span>": "value"}'</span></pre>
             </div>
 
-            <p class="example-label">Create directory</p>
+            <h3 class="example-label">Create directory</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/fs/project/src?mkdir=1</span></pre>
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/fs/project/src?mkdir=1</span></pre>
             </div>
 
-            <p class="example-label">Append to file</p>
+            <h3 class="example-label">Append to file</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/fs/log.txt?append=1</span> \
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/fs/log.txt?append=1</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">"New log entry"</span></pre>
             </div>
 
-            <p class="example-label">Delete file or directory</p>
+            <h3 class="example-label">Delete file or directory</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/fs/temp?recursive=1</span></pre>
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/fs/temp?recursive=1</span></pre>
             </div>
 
-            <p class="example-label">Get file metadata</p>
+            <h3 class="example-label">Get file metadata</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-curl">curl</span> <span class="hl-flag">-I</span> <span class="hl-url"><%= serverUrl %>/fs/data.json</span></pre>
+                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-I</span> <span class="hl-url"><%= serverUrl %>/fs/data.json</span></pre>
             </div>
             </div>
         </section>
 
         <section class="card">
             <div class="collapsible-header" onclick="toggleCollapse('proxyConfig')">
-                <h3>🔀 Proxy Mappings</h3>
+                <h2>🔀 Proxy Mappings</h2>
                 <button class="collapse-btn" id="proxyConfigBtn">Hide</button>
             </div>
 
             <div class="collapsible-content" id="proxyConfig">
             <p class="muted" style="margin-bottom: 12px;">Map local web servers to paths. Changes are applied immediately and persist across restarts.</p>
 
-            <div id="proxyMappingsList" style="margin-bottom: 16px;"></div>
+            <div data-no-md id="proxyMappingsList" style="margin-bottom: 16px;"></div>
 
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
+            <div data-no-md style="display: flex; gap: 8px; flex-wrap: wrap; align-items: flex-end;">
                 <div style="flex: 1; min-width: 120px;">
                     <label style="display: block; font-size: 12px; color: #94a3b8; margin-bottom: 4px;">Exposed Path</label>
                     <input type="text" id="newProxyPath" placeholder="/openclaw" style="
@@ -316,10 +321,10 @@
                 ">Add Mapping</button>
             </div>
 
-            <p class="example-label" style="margin-top: 20px;">API Examples</p>
+            <h3 class="example-label" style="margin-top: 20px;">API Examples</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block"><span class="hl-comment"># Get current mappings</span>
+                <pre class="code-block" data-lang="bash"><span class="hl-comment"># Get current mappings</span>
 <span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/proxy-config</span>
 
 <span class="hl-comment"># Add a mapping</span>
@@ -330,6 +335,56 @@
 <span class="hl-comment"># Remove a mapping</span>
 <span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/proxy-config/openclaw</span></pre>
             </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('responseFormat')">
+                <h2>📋 Response format</h2>
+                <button class="collapse-btn" id="responseFormatBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="responseFormat">
+            <p class="muted" style="margin-bottom: 12px;">All <code style="width: auto;">/exec</code> requests return:</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block" data-lang="json">{
+    <span class="hl-key">"stdout"</span>: <span class="hl-string">"string"</span>,
+    <span class="hl-key">"stderr"</span>: <span class="hl-string">"string"</span>,
+    <span class="hl-key">"exitCode"</span>: <span class="hl-number">0</span>,
+    <span class="hl-key">"language"</span>: <span class="hl-string">"shell|js|ts|py"</span>
+}</pre>
+            </div>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('workingDirs')">
+                <h2>📂 Working directories</h2>
+                <button class="collapse-btn" id="workingDirsBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="workingDirs">
+            <ul class="list">
+                <li>Shell commands: <code style="width: auto;">/sandbox</code> (default)</li>
+                <li>JavaScript/TypeScript: <code style="width: auto;">/sandbox/js-ts</code> (default)</li>
+                <li>Python: <code style="width: auto;">/sandbox/py</code> (default)</li>
+                <li>Override with <code style="width: auto;">cwd</code> parameter (must be within <code style="width: auto;">/sandbox</code>)</li>
+            </ul>
+            </div>
+        </section>
+
+        <section class="card">
+            <div class="collapsible-header" onclick="toggleCollapse('configuration')">
+                <h2>⚙️ Configuration</h2>
+                <button class="collapse-btn" id="configurationBtn">Hide</button>
+            </div>
+
+            <div class="collapsible-content" id="configuration">
+            <ul class="list">
+                <li><strong>Idle Timeout</strong>: The container automatically shuts down after inactivity (default 10m).</li>
+                <li><strong>Execution Timeout</strong>: Recommended to set to 0 (infinite) on the platform; use the <code style="width: auto;">idleTimeoutSeconds</code> input to control lifecycle.</li>
+            </ul>
             </div>
         </section>
     </main>

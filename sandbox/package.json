@@ -16,6 +16,8 @@
         "express": "^5.2.1",
         "http-proxy": "^1.18.1",
         "mime-types": "^3.0.2",
+        "node-html-markdown": "^2.0.0",
+        "node-html-parser": "^7.1.0",
         "zod": "^4.3.6"
     },
     "devDependencies": {
@@ -40,7 +42,7 @@
         "start:dev": "tsx src/main.ts",
         "start:standby": "APIFY_META_ORIGIN=\"STANDBY\" npm run start:dev",
         "build": "tsc -p tsconfig.build.json && npm run copy-templates",
-        "copy-templates": "mkdir -p dist/templates && cp src/templates/*.ejs src/templates/*.md src/templates/*.ico dist/templates/",
+        "copy-templates": "mkdir -p dist/templates && cp src/templates/*.ejs src/templates/*.ico dist/templates/",
         "lint": "eslint",
         "lint:fix": "eslint --fix",
         "format": "prettier --write .",
