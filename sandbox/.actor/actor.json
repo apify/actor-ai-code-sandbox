@@ -32,21 +32,21 @@
                 "type": "string",
                 "description": "npm packages to install for JavaScript and TypeScript code execution (/sandbox/js-ts).\n\nAccepts either format:\n- **One `package@version` per line** (npm CLI style):\n  ```\n  zod@^3.0\n  axios@latest\n  lodash\n  ```\n  Lines without `@version` default to `latest`. Blank lines and `#` comments are ignored. Scoped packages like `@types/node@^20` are supported.\n- **JSON object** (package.json `dependencies` style):\n  ```\n  {\"zod\": \"^3.0\", \"axios\": \"latest\"}\n  ```",
                 "editor": "textarea",
-                "prefill": "# One package@version per line. Omit @version for latest.\n# zod@^3.0\n# axios@latest\n# @types/node@^20"
+                "prefill": "# One package@version per line. Omit @version for latest.\n# Uncomment lines below or add your own:\n# zod@^3.0\n# axios@latest\n# lodash\n# @types/node@^20\n#\n# Or use JSON object format (package.json dependencies style):\n# {\"zod\": \"^3.0\", \"axios\": \"latest\"}"
             },
             "pythonRequirementsTxt": {
                 "title": "Python requirements",
                 "type": "string",
                 "description": "Python requirements in requirements.txt format for Python code execution (/sandbox/py). Paste your dependencies one per line. Example:\n requests==2.31.0\npandas>=2.0.0",
                 "editor": "textarea",
-                "prefill": ""
+                "prefill": "# One package per line, in requirements.txt format.\n# Uncomment lines below or add your own:\n# requests==2.31.0\n# pandas>=2.0.0\n# numpy\n# beautifulsoup4>=4.12"
             },
             "initShellScript": {
                 "title": "Initialization script",
                 "type": "string",
                 "description": "Optional bash script to customize the sandbox environment. Runs after library installation in /sandbox directory. Use for installing system packages, creating directories, or other setup tasks.",
                 "editor": "textarea",
-                "prefill": "apt-get update\n# apt-get install -y curl\n# mkdir /sandbox/data"
+                "prefill": "#!/bin/bash\n# Optional bash script run on startup, after dependencies are installed.\n# Uncomment lines below or add your own:\n# apt-get update\n# apt-get install -y curl jq\n# mkdir -p /sandbox/data\n# echo 'export MY_VAR=hello' >> /sandbox/.bashrc"
             },
             "envVars": {
                 "title": "Environment variables",

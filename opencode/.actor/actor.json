@@ -31,7 +31,7 @@
         "type": "string",
         "description": "Optional bash script to run on startup for installing packages or setting up the environment.",
         "editor": "textarea",
-        "prefill": "apt-get update\n# apt-get install -y curl"
+        "prefill": "#!/bin/bash\n# Optional bash script run on startup.\n# Uncomment lines below or add your own:\n# apt-get update\n# apt-get install -y curl jq\n# mkdir -p /sandbox/data\n# echo 'export MY_VAR=hello' >> /sandbox/.bashrc"
       },
       "envVars": {
         "title": "Environment variables",
