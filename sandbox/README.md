@@ -340,7 +340,7 @@ Mappings can also be modified by writing JSON to `/sandbox/.proxy-mappings.json`
 ## Configuration
 
 - **Memory & timeout:** Configure run options to set memory allocation and execution timeout
-- **Idle timeout:** The container automatically shuts down after a period of inactivity (default: 10 minutes). Activity includes HTTP requests and shell interaction. You can adjust this via the `idleTimeoutSeconds` input.
+- **Idle timeout:** The container automatically shuts down after a period of inactivity (default: 15 minutes). Activity includes HTTP requests and shell interaction. You can adjust this via the `idleTimeoutSeconds` input.
 - **Recommendation:** For cost efficiency, set the standard Actor **Execution Timeout to 0 (infinite)** in the Apify Console. The internal idle logic will then manage the lifecycle based on your usage.
 - **Request timeout:** All requests to the Actor have a 5-minute timeout ceiling. All operations (code execution, commands, file operations) must complete within this time limit. The `timeout` parameter in requests cannot exceed this 5-minute window
 - **Check logs:** Open the Actor run log console to view connection details and operation output

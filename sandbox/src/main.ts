@@ -1237,7 +1237,7 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     // Start idle timeout check
-    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 600;
+    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 900;
     if (idleTimeoutSecs > 0) {
         log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
         setInterval(async () => {

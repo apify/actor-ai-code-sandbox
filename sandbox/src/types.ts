@@ -51,7 +51,7 @@ export interface ActorInput {
     /**
      * Graceful shutdown timeout in seconds if no activity is detected.
      * Activity includes HTTP requests and shell interaction.
-     * @default 600 (10 minutes)
+     * @default 900 (15 minutes)
      */
     idleTimeoutSeconds?: number;
 
