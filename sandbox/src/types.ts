@@ -14,12 +14,11 @@ export interface ProxyMapping {
 
 export interface ActorInput {
     /**
-     * Skill packages to install for the AI coding agent
-     * Skills are SKILL.md files that provide specialized instructions
-     * Format: array of skill package names or URLs
-     * Example: ["apify/agent-skills"]
+     * Skill packages to install for the AI coding agent (SKILLS.md files).
+     * Accepts one skill per line (e.g. `anthropics/skills`; blank lines and
+     * `#` comments ignored) or a JSON array of skill name strings.
      */
-    skills?: string[];
+    skills?: string;
 
     /**
      * Node.js dependencies for JavaScript and TypeScript code execution.
