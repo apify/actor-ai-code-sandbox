@@ -63,7 +63,7 @@
             "proxyMappings": {
                 "title": "Proxy mappings",
                 "type": "array",
-                "description": "Map external paths to local web servers. Example: [{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]",
+                "description": "Expose web servers that you start **inside** the sandbox at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards `<container-url>/<path>` to `http://127.0.0.1:<port>/...` over HTTP and WebSocket. Use for your own dev server, a TUI gateway, an admin UI, etc.\n\nExample: `[{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]` — visiting `<container-url>/myapp` proxies to the local server on port 3000.\n\nMappings can also be added/removed at runtime via the `/proxy-config` API.",
                 "editor": "json",
                 "items": {
                     "type": "object",
@@ -84,8 +84,8 @@
                 "default": [],
                 "prefill": [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
             },
-            "mcpConnections": {
-                "title": "MCP Connections",
+            "mcpConnectors": {
+                "title": "MCP Connectors",
                 "type": "array",
                 "description": "MCP Connectors the sandbox can call on your behalf (Slack, Notion, GitHub, or any MCP server authorized in Settings > API & Integrations > MCP Connectors). At runtime the platform injects your credentials, exposes each as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`, and writes the list to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
                 "resourceType": "mcpConnector",

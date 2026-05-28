@@ -14,6 +14,7 @@ import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import { writeMcpConfig } from './mcp-connections.js';
+import { translateLaunchParam } from './shell-launch.js';
 import { parseNodeDependencies } from './node-deps.js';
 import {
     appendFile,
@@ -82,13 +83,13 @@ log.info('Actor input retrieved', {
     hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
-    mcpConnectionCount: input?.mcpConnections?.length ?? 0,
+    mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
 });
 
 // Write /sandbox/mcp.json with the configured MCP Connector proxies so
 // tools like `mcpc connect` find them as soon as the shell opens.
 if (!isLocalMode) {
-    writeMcpConfig(input?.mcpConnections);
+    writeMcpConfig(input?.mcpConnectors);
 }
 
 // Check for migration state and restore if available
@@ -957,6 +958,7 @@ app.all('/shell{*rest}', (req, res) => {
     if (path.startsWith('?')) {
         path = `/${  path}`;
     }
+    path = translateLaunchParam(path);
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
@@ -991,6 +993,7 @@ const wsProxy = httpProxy.createProxyServer({
 server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/shell')) {
         req.url = req.url.replace(/^\/shell/, '') || '/';
+        req.url = translateLaunchParam(req.url);
         log.info('Proxying shell WebSocket upgrade', { url: req.url });
 
         // Track activity on WebSocket data

@@ -67,5 +67,5 @@ export interface ActorInput {
      * and the sandbox writes the list to `/sandbox/mcp.json` on startup
      * so tools like `mcpc connect` can pick them up.
      */
-    mcpConnections?: string[];
+    mcpConnectors?: string[];
 }

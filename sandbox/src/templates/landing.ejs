@@ -173,9 +173,10 @@
                 <h2>🔗 Quick links</h2>
                 <div class="actions" data-no-md>
                     <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer">Interactive shell</a>
-                    <a class="button" href="/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20claude" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #8b5cf6, #a855f7);">Claude Code</a>
-                    <a class="button" href="/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20opencode" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #f59e0b, #ef4444);">OpenCode</a>
+                    <a class="button" href="/shell?launch=claude" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #8b5cf6, #a855f7);">Claude Code</a>
+                    <a class="button" href="/shell?launch=opencode" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #f59e0b, #ef4444);">OpenCode</a>
                     <a class="button" href="/browse" target="_blank" rel="noopener noreferrer" style="background: linear-gradient(120deg, #06b6d4, #0ea5e9);">Browse files</a>
+                    <a class="button secondary" href="https://apify.com/apify/ai-sandbox" target="_blank" rel="noopener noreferrer">Actor on Apify</a>
                     <a class="button secondary" href="/llms.txt" target="_blank" rel="noopener noreferrer">LLMs.txt</a>
                 </div>
             </div>
@@ -206,7 +207,7 @@
 
         <section class="card">
             <div class="collapsible-header" onclick="toggleCollapse('codeExec')">
-                <h2>⚡ Code execution</h2>
+                <h2>⚡ Code execution API</h2>
                 <button class="collapse-btn" id="codeExecBtn">Hide</button>
             </div>
             
@@ -239,7 +240,7 @@
 
         <section class="card">
             <div class="collapsible-header" onclick="toggleCollapse('filesystem')">
-                <h2>📁 Filesystem endpoints</h2>
+                <h2>📁 Filesystem API</h2>
                 <button class="collapse-btn" id="filesystemBtn">Hide</button>
             </div>
             
@@ -289,12 +290,12 @@
 
         <section class="card">
             <div class="collapsible-header" onclick="toggleCollapse('proxyConfig')">
-                <h2>🔀 Proxy Mappings</h2>
+                <h2>🔀 Proxy mappings</h2>
                 <button class="collapse-btn" id="proxyConfigBtn">Hide</button>
             </div>
 
             <div class="collapsible-content" id="proxyConfig">
-            <p class="muted" style="margin-bottom: 12px;">Map local web servers to paths. Changes are applied immediately and persist across restarts.</p>
+            <p class="muted" style="margin-bottom: 12px;">Expose web servers that you start <em>inside</em> the sandbox (your own dev server, a TUI gateway, etc.) at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards <code style="width: auto;">&lt;container-url&gt;/&lt;path&gt;</code> to <code style="width: auto;">http://127.0.0.1:&lt;port&gt;/...</code> over HTTP and WebSocket. Changes apply immediately and persist across restarts.</p>
 
             <div data-no-md id="proxyMappingsList" style="margin-bottom: 16px;"></div>
 
@@ -321,7 +322,7 @@
                     color: #fff; border: none; cursor: pointer;
                     box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
                     transition: all 0.3s ease; white-space: nowrap;
-                ">Add Mapping</button>
+                ">Add mapping</button>
             </div>
 
             <h3 class="example-label" style="margin-top: 20px;">API Examples</h3>

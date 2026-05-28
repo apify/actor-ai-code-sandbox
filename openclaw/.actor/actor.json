@@ -60,7 +60,7 @@
       "url": {
         "type": "string",
         "title": "Main page",
-        "template": "{{run.containerUrl}}/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20openclaw%20tui"
+        "template": "{{run.containerUrl}}/shell?launch=openclaw%20tui"
       }
     }
   },
