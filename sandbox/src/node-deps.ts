@@ -1,27 +1,23 @@
 import { log } from 'apify';
 
+import { isFlatJsonObject, safeParseJson } from './safe-json.js';
+
 /**
  * Parse a `{ "package": "version" }` object. Coerces numeric versions to
  * strings and null/empty values to `latest`; malformed JSON degrades to `{}`
  * with a warning so a single bad character does not abort the run.
  */
 const parseJsonObject = (raw: string): Record<string, string> => {
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (error) {
-        const err = error as Error;
-        log.warning('nodeDependencies: failed to parse JSON input, ignoring', { error: err.message });
-        return {};
-    }
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        log.warning('nodeDependencies: JSON must be a flat object of package names to version strings');
-        return {};
-    }
+    const parsed = safeParseJson(
+        raw,
+        'nodeDependencies',
+        isFlatJsonObject,
+        'JSON must be a flat object of package names to version strings',
+    );
+    if (!parsed) return {};
 
     const out: Record<string, string> = {};
-    for (const [name, value] of Object.entries(parsed as Record<string, unknown>)) {
+    for (const [name, value] of Object.entries(parsed)) {
         const pkg = name.trim();
         if (!pkg) continue;
         if (value === null || value === undefined || value === '') {

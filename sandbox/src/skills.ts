@@ -1,5 +1,7 @@
 import { log } from 'apify';
 
+import { safeParseJson } from './safe-json.js';
+
 /**
  * Trim entries, drop blanks and non-strings, and de-duplicate while preserving
  * the original order.
@@ -20,25 +22,9 @@ const cleanList = (values: unknown[]): string[] => {
     return out;
 };
 
-/**
- * Parse a JSON array of skill name strings. Malformed JSON or a non-array value
- * degrades to `[]` with a warning so a single bad character does not abort the run.
- */
 const parseJsonArray = (raw: string): string[] => {
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (error) {
-        const err = error as Error;
-        log.warning('skills: failed to parse JSON input, ignoring', { error: err.message });
-        return [];
-    }
-
-    if (!Array.isArray(parsed)) {
-        log.warning('skills: JSON must be an array of skill name strings');
-        return [];
-    }
-    return cleanList(parsed);
+    const parsed = safeParseJson(raw, 'skills', Array.isArray, 'JSON must be an array of skill name strings');
+    return parsed ? cleanList(parsed) : [];
 };
 
 const parseLines = (raw: string): string[] => {

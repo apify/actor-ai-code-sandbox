@@ -1,24 +1,20 @@
 import { log } from 'apify';
 
+import { isFlatJsonObject, safeParseJson } from './safe-json.js';
+
 const VALID_KEY = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 const parseJsonObject = (raw: string): Record<string, string> => {
-    let parsed: unknown;
-    try {
-        parsed = JSON.parse(raw);
-    } catch (error) {
-        const err = error as Error;
-        log.warning('envVars: failed to parse JSON input, ignoring', { error: err.message });
-        return {};
-    }
-
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-        log.warning('envVars: JSON must be a flat object of string keys and string values');
-        return {};
-    }
+    const parsed = safeParseJson(
+        raw,
+        'envVars',
+        isFlatJsonObject,
+        'JSON must be a flat object of string keys and string values',
+    );
+    if (!parsed) return {};
 
     const out: Record<string, string> = {};
-    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+    for (const [key, value] of Object.entries(parsed)) {
         if (!VALID_KEY.test(key)) {
             log.warning('envVars: skipping invalid key', { key });
             continue;
