@@ -1,0 +1,95 @@
+{
+  "actorSpecification": 1,
+  "name": "codex",
+  "title": "Codex",
+  "description": "Instant access to Codex - OpenAI's AI coding assistant running on Apify",
+  "version": "0.0",
+  "buildTag": "latest",
+  "usesStandbyMode": false,
+  "meta": {
+    "generatedBy": "claude-opus-4-7"
+  },
+  "input": {
+    "title": "Actor input schema",
+    "description": "Just run the Actor and use Codex with Apify. The Codex window will automatically open in the Actor run console.",
+    "type": "object",
+    "schemaVersion": 1,
+    "properties": {
+       "skills": {
+        "title": "Skills",
+        "type": "array",
+        "description": "List of skill packages to install for the AI coding agent. Skills are SKILLS.md files that provide specialized instructions. For more info see https://skills.sh/. Example: apify/agent-skills",
+        "editor": "stringList",
+        "items": {
+          "type": "string"
+        },
+        "default": ["apify/agent-skills"],
+        "prefill": ["apify/agent-skills"]
+      },
+      "initShellScript": {
+        "title": "Initialization script",
+        "type": "string",
+        "description": "Optional bash script to run on startup for installing packages or setting up the environment.",
+        "editor": "textarea",
+        "prefill": "apt-get update\n# apt-get install -y curl"
+      },
+      "envVars": {
+        "title": "Environment variables",
+        "type": "string",
+        "description": "Secret environment variables exposed to the sandbox shell, init script, and code execution. Encrypted at rest by Apify and decrypted only at runtime.\n\nAccepts either format:\n- **KEY=VALUE per line** (dotenv-style):\n  ```\n  OPENAI_API_KEY=sk-...\n  MY_VAR=hello\n  ```\n- **JSON object**:\n  ```\n  {\"OPENAI_API_KEY\": \"sk-...\", \"MY_VAR\": \"hello\"}\n  ```",
+        "editor": "textarea",
+        "isSecret": true
+      },
+       "idleTimeoutSecs": {
+         "title": "Idle timeout seconds",
+         "type": "integer",
+         "description": "Automatically shut down after this many seconds of inactivity. Set to 0 to disable. Recommended: set Actor timeout to 0 (infinite) when using this.",
+         "default": 600,
+         "editor": "number",
+         "prefill": 600
+       },
+       "proxyMappings": {
+         "title": "Proxy mappings",
+         "type": "array",
+         "description": "Map external paths to local web servers. Example: [{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]",
+         "editor": "json",
+         "items": {
+           "type": "object",
+           "properties": {
+             "path": {
+               "title": "Exposed path",
+               "type": "string",
+               "description": "External URL path (e.g., /openclaw)"
+             },
+             "target": {
+               "title": "Local service URL",
+               "type": "string",
+               "description": "Full URL of local service (e.g., http://127.0.0.1:18789/openclaw)"
+             }
+           },
+           "required": ["path", "target"]
+         },
+         "default": [],
+         "prefill": [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
+       }
+     },
+
+     "required": []
+  },
+  "output": {
+    "actorOutputSchemaVersion": 1,
+
+    "title": "Codex",
+    "description": "",
+    "type": "object",
+
+    "properties": {
+      "url": {
+        "type": "string",
+        "title": "Main page",
+        "template": "{{run.containerUrl}}/shell?launch=codex"
+      }
+    }
+  },
+  "dockerfile": "./Dockerfile"
+}
