@@ -1,9 +1,7 @@
 import { spawn } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import http, { createServer } from 'node:http';
-import { dirname, join } from 'node:path';
 import type { Duplex } from 'node:stream';
-import { fileURLToPath } from 'node:url';
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
@@ -656,14 +654,6 @@ app.get('/info', (_req: Request, res: Response) => {
             isLocalMode,
         }),
     );
-});
-
-// Favicon endpoint
-app.get('/favicon.ico', (_req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'image/x-icon');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    const faviconPath = join(dirname(fileURLToPath(import.meta.url)), 'templates', 'favicon.ico');
-    res.sendFile(faviconPath);
 });
 
 // LLMs.txt endpoint (Markdown documentation for LLMs)
