@@ -42,7 +42,7 @@
         "start:dev": "tsx src/main.ts",
         "start:standby": "APIFY_META_ORIGIN=\"STANDBY\" npm run start:dev",
         "build": "tsc -p tsconfig.build.json && npm run copy-templates",
-        "copy-templates": "mkdir -p dist/templates && cp src/templates/*.ejs src/templates/*.ico dist/templates/",
+        "copy-templates": "mkdir -p dist/templates && cp src/templates/*.ejs dist/templates/",
         "lint": "eslint",
         "lint:fix": "eslint --fix",
         "format": "prettier --write .",
