@@ -37,7 +37,7 @@
         "editor": "textarea",
         "isSecret": true
       },
-      "idleTimeoutSeconds": {
+      "idleTimeoutSecs": {
         "title": "Idle timeout seconds",
         "type": "integer",
         "description": "Automatically shut down after this many seconds of inactivity. Set to 0 to disable. Recommended: set Actor timeout to 0 (infinite) when using this.",

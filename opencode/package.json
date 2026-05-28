@@ -1,7 +1,7 @@
 {
   "name": "opencode-sandbox",
   "version": "0.0.1",
-  "description": "OpenCode Sandbox - Metamorphs into Apify AI Sandbox",
+  "description": "OpenCode Sandbox - Metamorphs into Apify AI Code Sandbox",
   "type": "module",
   "engines": {
     "node": ">=18"

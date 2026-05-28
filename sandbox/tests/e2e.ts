@@ -1,5 +1,5 @@
 /**
- * E2E Platform Test for Apify AI Sandbox Actor
+ * E2E Platform Test for Apify AI Code Sandbox Actor
  *
  * This script:
  * 1. Deploys and starts the Actor on Apify platform
@@ -433,7 +433,7 @@ async function testFsEndpoint(
 // ============================================================================
 
 async function runAllTests(baseUrl: string): Promise<void> {
-    console.log(`\n${colors.blue}Testing Apify AI Sandbox REST Endpoints${colors.reset}`);
+    console.log(`\n${colors.blue}Testing Apify AI Code Sandbox REST Endpoints${colors.reset}`);
     console.log(`Base URL: ${baseUrl}\n`);
 
     // Health check
@@ -922,7 +922,7 @@ async function runAllTests(baseUrl: string): Promise<void> {
 
 async function main(): Promise<void> {
     console.log('===================================');
-    console.log('🚀 Apify AI Sandbox E2E Platform Test');
+    console.log('🚀 Apify AI Code Sandbox E2E Platform Test');
     console.log('===================================\n');
 
     let runId: string | null = null;
@@ -934,7 +934,7 @@ async function main(): Promise<void> {
 
         const input = {
             nodeDependencies: 'zod@^3.22.0',
-            pythonRequirementsTxt: 'numpy>=1.24.0',
+            pythonRequirements: 'numpy>=1.24.0',
             envVars: 'TEST_E2E_SECRET=hunter2-do-not-leak',
             initShellScript: [
                 '#!/bin/bash',

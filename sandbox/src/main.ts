@@ -79,7 +79,7 @@ log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
     hasSkills: skills.length > 0,
     hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
-    hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
+    hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
     mcpConnectionCount: input?.mcpConnections?.length ?? 0,
@@ -118,7 +118,7 @@ if (restoredFromMigration) {
     setupResult = await setupExecutionEnvironment({
         skills,
         nodeDependencies,
-        pythonRequirementsTxt: input?.pythonRequirementsTxt,
+        pythonRequirements: input?.pythonRequirements,
     });
 }
 
@@ -1235,12 +1235,12 @@ app.use((req: Request, res: Response, next) => {
 
 // Start server
 server.listen(port, () => {
-    log.info(`Apify AI Sandbox listening on port ${port}`);
+    log.info(`Apify AI Code Sandbox listening on port ${port}`);
     log.info(`Server URL: ${serverUrl}`);
 
     // Print startup information
     console.log('\n=====================================');
-    console.log('🚀 Apify AI Sandbox Started');
+    console.log('🚀 Apify AI Code Sandbox Started');
     console.log('=====================================\n');
 
     console.log('🖥️  Live shell (shown in the run Live View):');
@@ -1301,7 +1301,7 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     // Start idle timeout check
-    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 900;
+    const idleTimeoutSecs = input?.idleTimeoutSecs ?? 900;
     if (idleTimeoutSecs > 0) {
         log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
         setInterval(async () => {

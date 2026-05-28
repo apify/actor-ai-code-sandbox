@@ -33,7 +33,7 @@ echo -e "                     +++++++++++++++++++++++++"
 echo -e "                    +++++++++++++++++++++++++++\${NC}"
 
 echo ""
-echo -e "\${BOLD}Welcome to Apify AI Sandbox!\${NC}"
+echo -e "\${BOLD}Welcome to Apify AI Code Sandbox!\${NC}"
 echo ""
 echo -e "\${GREEN}System Info:\${NC}"
 

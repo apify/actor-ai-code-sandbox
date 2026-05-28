@@ -29,7 +29,7 @@ On startup, it:
 |-------|-------------|---------|
 | `skills` | Skill packages to install (SKILLS.md files), one per line or JSON array | `apify/agent-skills` |
 | `initShellScript` | Bash script to run before OpenClaw starts | - |
-| `idleTimeoutSeconds` | Shutdown after inactivity (0 = disabled) | 0 |
+| `idleTimeoutSecs` | Shutdown after inactivity (0 = disabled) | 0 |
 
 ## 📚 Skills Support
 

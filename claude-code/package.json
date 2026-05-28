@@ -1,7 +1,7 @@
 {
   "name": "claude-code-sandbox",
   "version": "0.0.1",
-  "description": "Claude Code Sandbox - Metamorphs into Apify AI Sandbox",
+  "description": "Claude Code Sandbox - Metamorphs into Apify AI Code Sandbox",
   "type": "module",
   "engines": {
     "node": ">=18"

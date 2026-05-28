@@ -310,7 +310,7 @@ export const installSkills = async (
 export const setupExecutionEnvironment = async (input: {
     skills?: string[];
     nodeDependencies?: Record<string, string>;
-    pythonRequirementsTxt?: string;
+    pythonRequirements?: string;
 }): Promise<{
     success: boolean;
     skillsSetup: { success: boolean; installed: string[]; failed: { skill: string; error: string }[] };
@@ -349,7 +349,7 @@ export const setupExecutionEnvironment = async (input: {
     const [skillsSetup, nodeSetup, pythonSetup] = await Promise.all([
         installSkills(input.skills),
         installNodeLibraries(input.nodeDependencies),
-        installPythonLibraries(input.pythonRequirementsTxt),
+        installPythonLibraries(input.pythonRequirements),
     ]);
 
     const success = errors.length === 0 && skillsSetup.success && nodeSetup.success && pythonSetup.success;
