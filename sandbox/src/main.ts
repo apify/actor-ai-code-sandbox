@@ -31,15 +31,16 @@ import {
 } from './operations.js';
 import { initializePersistence, restoreMigrationState, saveMigrationState } from './persistence.js';
 import {
-    initializeProxyConfig,
-    getProxyMappings,
-    saveProxyConfig,
     addProxyMapping,
-    removeProxyMapping,
+    getProxyMappings,
+    initializeProxyConfig,
     onMappingsChange,
+    removeProxyMapping,
+    saveProxyConfig,
 } from './proxy-config.js';
 import { broadcastToTerminals, buildShutdownBanner } from './shutdown.js';
 import { parseSkills } from './skills.js';
+import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
 import { getShellLiveViewHTML } from './templates/live-view.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
@@ -658,6 +659,16 @@ app.get('/info', (_req: Request, res: Response) => {
     );
 });
 
+// Interactive filesystem browser. SPA fetches the /fs/* JSON endpoints to
+// render directory listings and file previews.
+const handleBrowse = (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(getBrowsePageHTML());
+};
+app.get('/browse', handleBrowse);
+app.get('/browse/', handleBrowse);
+app.get('/browse/*path', handleBrowse);
+
 // Favicon endpoint
 app.get('/favicon.ico', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'image/x-icon');
@@ -744,7 +755,7 @@ app.post('/proxy-config', (req: Request, res: Response) => {
 // DELETE /proxy-config/:path - Remove a proxy mapping
 app.delete('/proxy-config/*path', (req: Request, res: Response) => {
     try {
-        const pathToRemove = '/' + String(req.params.path || '');
+        const pathToRemove = `/${  String(req.params.path || '')}`;
 
         const removed = removeProxyMapping(pathToRemove);
         if (removed) {
@@ -1036,7 +1047,7 @@ server.on('upgrade', (req, socket, head) => {
             
             req.url = finalPath + queryString;
             if (!req.url.startsWith('/')) {
-                req.url = '/' + req.url;
+                req.url = `/${  req.url}`;
             }
 
             log.info('Proxying dynamic WebSocket upgrade', {
@@ -1113,7 +1124,7 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
 
     // Rewrite Location headers in redirects to map target paths back to exposed paths
     proxy.on('proxyRes', (proxyRes) => {
-        const location = proxyRes.headers['location'];
+        const {location} = proxyRes.headers;
         if (location && typeof location === 'string') {
             log.info('Proxy response with Location header', { 
                 statusCode: proxyRes.statusCode,
@@ -1124,7 +1135,7 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
             // If the location starts with the target path, rewrite it to the exposed path
             if (location.startsWith(targetPath)) {
                 const newLocation = mapping.path + location.slice(targetPath.length);
-                proxyRes.headers['location'] = newLocation;
+                proxyRes.headers.location = newLocation;
                 log.info('Rewrote redirect Location header', { 
                     original: location, 
                     rewritten: newLocation,
@@ -1211,7 +1222,7 @@ app.use((req: Request, res: Response, next) => {
         
         // Ensure URL starts with /
         if (!req.url.startsWith('/')) {
-            req.url = '/' + req.url;
+            req.url = `/${  req.url}`;
         }
 
         log.info('Proxying request', {
@@ -1249,6 +1260,10 @@ server.listen(port, () => {
     console.log('🏠 Docs & endpoints page:');
     console.log(`   GET ${serverUrl}/info`);
     console.log('       Connection details, quick links, and endpoint URLs\n');
+
+    console.log('🗂  File browser:');
+    console.log(`   GET ${serverUrl}/browse`);
+    console.log('       Interactive web UI for navigating /sandbox\n');
 
     // Shell terminal endpoint
     console.log(`   GET ${serverUrl}/shell/`);
