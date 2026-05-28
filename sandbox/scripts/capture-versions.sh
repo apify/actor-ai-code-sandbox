@@ -58,6 +58,14 @@ else
     echo "⚠️  OpenCode: not installed"
 fi
 
+# Capture Codex CLI version (optional)
+if codex --version > "$VERSION_DIR/codex.txt" 2>/dev/null; then
+    echo "✅ Codex: $(cat "$VERSION_DIR/codex.txt")"
+else
+    echo "not installed" > "$VERSION_DIR/codex.txt"
+    echo "⚠️  Codex: not installed"
+fi
+
 echo ""
 echo "🎉 Version capture complete! Files stored in $VERSION_DIR"
 echo "   This will make shell startup 30-120x faster!"
