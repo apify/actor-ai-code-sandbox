@@ -340,7 +340,7 @@ Mappings can also be modified by writing JSON to `/sandbox/.proxy-mappings.json`
 ## Configuration
 
 - **Memory & timeout:** Configure run options to set memory allocation and execution timeout
-- **Idle timeout:** The container automatically shuts down after a period of inactivity (default: 10 minutes). Activity includes HTTP requests and shell interaction. You can adjust this via the `idleTimeoutSeconds` input.
+- **Idle timeout:** The container automatically shuts down after a period of inactivity (default: 15 minutes). Activity includes HTTP requests and shell interaction. You can adjust this via the `idleTimeoutSeconds` input.
 - **Recommendation:** For cost efficiency, set the standard Actor **Execution Timeout to 0 (infinite)** in the Apify Console. The internal idle logic will then manage the lifecycle based on your usage.
 - **Request timeout:** All requests to the Actor have a 5-minute timeout ceiling. All operations (code execution, commands, file operations) must complete within this time limit. The `timeout` parameter in requests cannot exceed this 5-minute window
 - **Check logs:** Open the Actor run log console to view connection details and operation output
@@ -416,8 +416,8 @@ mkdir -p /sandbox/custom-data && chmod 755 /sandbox/custom-data
 
 Install skill packages that provide specialized instructions for AI coding agents. Skills are SKILLS.md files that enhance agent capabilities.
 
-- Specify skills via the "Skills" input (array of package names)
-- Example: `["apify/agent-skills"]`
+- Specify skills via the "Skills" input — one package per line (e.g. `anthropics/skills`), or a JSON array
+- Example: `apify/agent-skills`
 - Skills are installed globally during Actor startup
 - For more info see [skills.sh](https://skills.sh/)
 

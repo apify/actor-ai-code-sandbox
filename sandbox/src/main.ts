@@ -39,6 +39,7 @@ import {
     onMappingsChange,
 } from './proxy-config.js';
 import { broadcastToTerminals, buildShutdownBanner } from './shutdown.js';
+import { parseSkills } from './skills.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
 import { getShellLiveViewHTML } from './templates/live-view.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
@@ -73,9 +74,11 @@ const userEnvVars = parseEnvVars(input?.envVars);
 setUserEnvVars(userEnvVars);
 
 const nodeDependencies = parseNodeDependencies(input?.nodeDependencies);
+const skills = parseSkills(input?.skills);
 
 log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
+    hasSkills: skills.length > 0,
     hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
     hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
@@ -114,7 +117,7 @@ if (restoredFromMigration) {
 } else {
     log.info('Setting up execution environment...');
     setupResult = await setupExecutionEnvironment({
-        skills: input?.skills,
+        skills,
         nodeDependencies,
         pythonRequirementsTxt: input?.pythonRequirementsTxt,
     });
@@ -1293,7 +1296,7 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     // Start idle timeout check
-    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 600;
+    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 900;
     if (idleTimeoutSecs > 0) {
         log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
         setInterval(async () => {

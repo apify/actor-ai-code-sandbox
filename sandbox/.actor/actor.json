@@ -18,35 +18,32 @@
         "properties": {
             "skills": {
                 "title": "Skills",
-                "type": "array",
-                "description": "List of skill packages to install for the AI coding agent. Skills are SKILLS.md files that provide specialized instructions. For more info see https://skills.sh/. Example: apify/agent-skills",
-                "editor": "stringList",
-                "items": {
-                    "type": "string"
-                },
-                "default": ["apify/agent-skills"],
-                "prefill": ["apify/agent-skills"]
+                "type": "string",
+                "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line, e.g. `anthropics/skills` (blank lines and `#` comments are ignored), or a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",
+                "editor": "textarea",
+                "default": "apify/agent-skills",
+                "prefill": "apify/agent-skills\n# One skill per line, e.g. anthropics/skills"
             },
             "nodeDependencies": {
                 "title": "Node.js dependencies",
                 "type": "string",
-                "description": "npm packages to install for JavaScript and TypeScript code execution (/sandbox/js-ts).\n\nAccepts either format:\n- **One `package@version` per line** (npm CLI style):\n  ```\n  zod@^3.0\n  axios@latest\n  lodash\n  ```\n  Lines without `@version` default to `latest`. Blank lines and `#` comments are ignored. Scoped packages like `@types/node@^20` are supported.\n- **JSON object** (package.json `dependencies` style):\n  ```\n  {\"zod\": \"^3.0\", \"axios\": \"latest\"}\n  ```",
+                "description": "npm packages for JavaScript/TypeScript code execution (/sandbox/js-ts). One `package@version` per line (omit `@version` for `latest`; blank lines and `#` comments are ignored), or a JSON object like `{\"zod\": \"^3.0\", \"axios\": \"latest\"}`.",
                 "editor": "textarea",
-                "prefill": "# One package@version per line. Omit @version for latest.\n# Uncomment lines below or add your own:\n# zod@^3.0\n# axios@latest\n# lodash\n# @types/node@^20\n#\n# Or use JSON object format (package.json dependencies style):\n# {\"zod\": \"^3.0\", \"axios\": \"latest\"}"
+                "prefill": "# One package@version per line (omit @version for latest):\n# zod@^3.0\n# axios"
             },
             "pythonRequirementsTxt": {
                 "title": "Python requirements",
                 "type": "string",
-                "description": "Python requirements in requirements.txt format for Python code execution (/sandbox/py). Paste your dependencies one per line. Example:\n requests==2.31.0\npandas>=2.0.0",
+                "description": "Python packages for Python code execution (/sandbox/py), in requirements.txt format — one package per line.",
                 "editor": "textarea",
-                "prefill": "# One package per line, in requirements.txt format.\n# Uncomment lines below or add your own:\n# requests==2.31.0\n# pandas>=2.0.0\n# numpy\n# beautifulsoup4>=4.12"
+                "prefill": "# One package per line (requirements.txt format):\n# requests==2.31.0\n# pandas"
             },
             "initShellScript": {
                 "title": "Initialization script",
                 "type": "string",
-                "description": "Optional bash script to customize the sandbox environment. Runs after library installation in /sandbox directory. Use for installing system packages, creating directories, or other setup tasks.",
+                "description": "Optional bash script run on startup, after dependencies are installed. Use it to install system packages, create directories, or set up the environment.",
                 "editor": "textarea",
-                "prefill": "#!/bin/bash\n# Optional bash script run on startup, after dependencies are installed.\n# Uncomment lines below or add your own:\n# apt-get update\n# apt-get install -y curl jq\n# mkdir -p /sandbox/data\n# echo 'export MY_VAR=hello' >> /sandbox/.bashrc"
+                "prefill": "#!/bin/bash\n# Runs on startup. Uncomment or add your own:\n# apt-get update && apt-get install -y jq\n# mkdir -p /sandbox/data"
             },
             "envVars": {
                 "title": "Environment variables",
@@ -58,10 +55,10 @@
             "idleTimeoutSeconds": {
                 "title": "Idle timeout seconds",
                 "type": "integer",
-                "description": "The container will automatically shut down after this period of inactivity (no requests, no shell interaction). Set to 0 to disable. Recommended to set Actor execution timeout to 0 (infinite) when using this.",
-                "default": 600,
+                "description": "The container shuts down automatically after this many seconds of inactivity (no requests or shell interaction). Set to 0 to disable. Recommended: set the Actor timeout to 0 (infinite) when using this.",
+                "default": 900,
                 "editor": "number",
-                "prefill": 600
+                "prefill": 900
             },
             "proxyMappings": {
                 "title": "Proxy mappings",
@@ -90,7 +87,7 @@
             "mcpConnections": {
                 "title": "MCP Connections",
                 "type": "array",
-                "description": "MCP Connectors the sandbox can call on your behalf — for example Slack, Notion, GitHub, or any other MCP server you have authorized in Settings > API & Integrations > MCP Connectors. At runtime the platform injects your credentials and exposes each Connector as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`. The sandbox writes the full list to `/sandbox/mcp.json` on startup so tools like `mcpc connect` can pick them up immediately.",
+                "description": "MCP Connectors the sandbox can call on your behalf (Slack, Notion, GitHub, or any MCP server authorized in Settings > API & Integrations > MCP Connectors). At runtime the platform injects your credentials, exposes each as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`, and writes the list to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
                 "resourceType": "mcpConnector",
                 "mcpServers": [{ "url": "*" }],
                 "editor": "resourcePicker",

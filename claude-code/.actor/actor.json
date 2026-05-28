@@ -17,26 +17,23 @@
     "properties": {
        "skills": {
         "title": "Skills",
-        "type": "array",
-        "description": "List of skill packages to install for the AI coding agent. Skills are SKILLS.md files that provide specialized instructions. For more info see https://skills.sh/. Example: apify/agent-skills",
-        "editor": "stringList",
-        "items": {
-          "type": "string"
-        },
-        "default": ["apify/agent-skills"],
-        "prefill": ["apify/agent-skills"]
+        "type": "string",
+        "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line, e.g. `anthropics/skills` (blank lines and `#` comments are ignored), or a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",
+        "editor": "textarea",
+        "default": "apify/agent-skills",
+        "prefill": "apify/agent-skills\n# One skill per line, e.g. anthropics/skills"
       },
       "initShellScript": {
         "title": "Initialization script",
         "type": "string",
         "description": "Optional bash script to run on startup for installing packages or setting up the environment.",
         "editor": "textarea",
-        "prefill": "#!/bin/bash\n# Optional bash script run on startup.\n# Uncomment lines below or add your own:\n# apt-get update\n# apt-get install -y curl jq\n# mkdir -p /sandbox/data\n# echo 'export MY_VAR=hello' >> /sandbox/.bashrc"
+        "prefill": "#!/bin/bash\n# Runs on startup. Uncomment or add your own:\n# apt-get update && apt-get install -y jq\n# mkdir -p /sandbox/data"
       },
       "envVars": {
         "title": "Environment variables",
         "type": "string",
-        "description": "Secret environment variables exposed to the sandbox shell, init script, and code execution. Encrypted at rest by Apify and decrypted only at runtime.\n\nAccepts either format:\n- **KEY=VALUE per line** (dotenv-style):\n  ```\n  OPENAI_API_KEY=sk-...\n  MY_VAR=hello\n  ```\n- **JSON object**:\n  ```\n  {\"OPENAI_API_KEY\": \"sk-...\", \"MY_VAR\": \"hello\"}\n  ```",
+        "description": "Secret environment variables exposed to the sandbox shell, init script, and code execution. Encrypted at rest by Apify, decrypted only at runtime. Accepts `KEY=VALUE` per line or a JSON object like `{\"OPENAI_API_KEY\": \"sk-...\", \"MY_VAR\": \"hello\"}`.",
         "editor": "textarea",
         "isSecret": true
       },
@@ -44,9 +41,9 @@
          "title": "Idle timeout seconds",
          "type": "integer",
          "description": "Automatically shut down after this many seconds of inactivity. Set to 0 to disable. Recommended: set Actor timeout to 0 (infinite) when using this.",
-         "default": 600,
+         "default": 900,
          "editor": "number",
-         "prefill": 600
+         "prefill": 900
        },
        "proxyMappings": {
          "title": "Proxy mappings",
