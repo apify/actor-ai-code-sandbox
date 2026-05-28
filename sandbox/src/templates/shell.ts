@@ -59,7 +59,7 @@ fi
 echo ""
 echo -e "\${BLUE}Documentation:\${NC}"
 if [ -n "\$ACTOR_WEB_SERVER_URL" ]; then
-    echo -e "  - Actor page:        \$ACTOR_WEB_SERVER_URL"
+    echo -e "  - Docs & API:        \$ACTOR_WEB_SERVER_URL/info"
 fi
 if [ -n "\$ACTOR_RUN_ID" ]; then
     echo -e "  - Run details:       https://console.apify.com/view/runs/\$ACTOR_RUN_ID"

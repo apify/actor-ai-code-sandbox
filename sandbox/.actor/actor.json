@@ -107,8 +107,13 @@
         "properties": {
             "url": {
                 "type": "string",
-                "title": "Main page",
+                "title": "Live shell",
                 "template": "{{run.containerUrl}}"
+            },
+            "docsUrl": {
+                "type": "string",
+                "title": "Docs & API",
+                "template": "{{links.containerUrl}}/info"
             },
             "shellUrl": {
                 "type": "string",

@@ -38,8 +38,10 @@ import {
     removeProxyMapping,
     onMappingsChange,
 } from './proxy-config.js';
+import { broadcastToTerminals, buildShutdownBanner } from './shutdown.js';
 import { parseSkills } from './skills.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
+import { getShellLiveViewHTML } from './templates/live-view.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
 import type { ActorInput, ProxyMapping } from './types.js';
 
@@ -637,8 +639,16 @@ app.delete('/fs/*path', async (req: Request, res: Response) => {
 // Middleware for JSON parsing (applied to routes below)
 app.use(express.json({ limit: '50mb' }));
 
-// Landing page endpoint
+// Root serves the live shell terminal. Apify's run Live View always loads the
+// container root, so embedding /shell/ here surfaces the interactive terminal
+// directly in the run console.
 app.get('/', (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(getShellLiveViewHTML());
+});
+
+// Docs / API landing page (moved off `/` so the Live View can show the shell).
+app.get('/info', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(
         getLandingPageHTML({
@@ -895,6 +905,48 @@ const spawnTtyd = () => {
 
 if (!isLocalMode) {
     spawnTtyd();
+}
+
+// ============================================================================
+// Shutdown notifications
+// ============================================================================
+
+/** Delay before exiting so ttyd can flush the banner to connected browsers. */
+const TERMINAL_FLUSH_DELAY_MS = 1000;
+
+/**
+ * Show a shutdown banner in every open browser terminal. No-op in local mode,
+ * where /dev/pts would hold the developer's own terminals rather than ttyd's.
+ * @param reason - Human-readable explanation of why the Actor is stopping.
+ */
+const notifyTerminalsOfShutdown = (reason: string): void => {
+    if (isLocalMode) return;
+    broadcastToTerminals(buildShutdownBanner(reason, process.env.ACTOR_RUN_ID));
+};
+
+/**
+ * Notify open terminals, then exit the Actor. The brief delay lets ttyd flush
+ * the banner over the WebSocket before the process tears down the connection
+ * (after which the terminal only shows ttyd's "Press ⏎ to Reconnect" overlay).
+ * @param reason - Human-readable explanation of why the Actor is stopping.
+ */
+const shutdownWithNotice = async (reason: string): Promise<void> => {
+    notifyTerminalsOfShutdown(reason);
+    await new Promise((resolve) => {
+        setTimeout(resolve, TERMINAL_FLUSH_DELAY_MS);
+    });
+    await Actor.exit({ statusMessage: reason });
+};
+
+// Surface platform-initiated stops (migration, abort) in the terminal too. These
+// fire synchronously; the platform controls process exit, so we only broadcast.
+if (!isLocalMode) {
+    Actor.on('migrating', () => {
+        notifyTerminalsOfShutdown('Actor is migrating to a new host and will resume shortly. Reconnect in a moment.');
+    });
+    Actor.on('aborting', () => {
+        notifyTerminalsOfShutdown('Actor run is being aborted.');
+    });
 }
 
 // Manual HTTP Proxy for ttyd
@@ -1190,13 +1242,17 @@ server.listen(port, () => {
     console.log('🚀 Apify AI Sandbox Started');
     console.log('=====================================\n');
 
-    console.log('🏠 Landing page (open first):');
+    console.log('🖥️  Live shell (shown in the run Live View):');
     console.log(`   GET ${serverUrl}/`);
+    console.log('       Interactive shell terminal, embedded\n');
+
+    console.log('🏠 Docs & endpoints page:');
+    console.log(`   GET ${serverUrl}/info`);
     console.log('       Connection details, quick links, and endpoint URLs\n');
 
     // Shell terminal endpoint
     console.log(`   GET ${serverUrl}/shell/`);
-    console.log(`       Interactive shell terminal\n`);
+    console.log(`       Raw interactive shell terminal\n`);
 
     // MCP Server URL
     console.log('📡 MCP Server Endpoint:');
@@ -1248,7 +1304,7 @@ server.listen(port, () => {
             if (idleTimeMs > idleTimeoutSecs * 1000) {
                 const message = `Actor shut down after ${Math.floor(idleTimeoutSecs / 60)} minutes of inactivity.`;
                 log.warning(message);
-                await Actor.exit({ statusMessage: message });
+                await shutdownWithNotice(message);
             }
         }, 30000); // Check every 30 seconds
     }
