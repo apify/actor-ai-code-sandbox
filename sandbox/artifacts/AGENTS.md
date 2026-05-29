@@ -1,6 +1,6 @@
-# Agent Instructions for Apify AI Sandbox
+# Agent Instructions for Apify AI Code Sandbox
 
-This document contains instructions for AI coding agents working inside the Apify AI Sandbox Actor.
+This document contains instructions for AI coding agents working inside the Apify AI Code Sandbox Actor.
 
 ## Sharing Files and Data with Users
 

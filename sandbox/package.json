@@ -2,7 +2,7 @@
     "name": "apify-ai-sandbox",
     "version": "0.0.1",
     "type": "module",
-    "description": "Apify AI Sandbox for running AI coding operations in a containerized environment.",
+    "description": "Apify AI Code Sandbox for running AI coding operations in a containerized environment.",
     "engines": {
         "node": ">=20.0.0"
     },

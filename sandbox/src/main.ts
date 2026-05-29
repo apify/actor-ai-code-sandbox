@@ -14,6 +14,7 @@ import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
 import { writeMcpConfig } from './mcp-connections.js';
+import { translateLaunchParam } from './shell-launch.js';
 import { parseNodeDependencies } from './node-deps.js';
 import {
     appendFile,
@@ -79,16 +80,16 @@ log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
     hasSkills: skills.length > 0,
     hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
-    hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
+    hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
     hasInitScript: !!input?.initShellScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
-    mcpConnectionCount: input?.mcpConnections?.length ?? 0,
+    mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
 });
 
 // Write /sandbox/mcp.json with the configured MCP Connector proxies so
 // tools like `mcpc connect` find them as soon as the shell opens.
 if (!isLocalMode) {
-    writeMcpConfig(input?.mcpConnections);
+    writeMcpConfig(input?.mcpConnectors);
 }
 
 // Check for migration state and restore if available
@@ -118,7 +119,7 @@ if (restoredFromMigration) {
     setupResult = await setupExecutionEnvironment({
         skills,
         nodeDependencies,
-        pythonRequirementsTxt: input?.pythonRequirementsTxt,
+        pythonRequirements: input?.pythonRequirements,
     });
 }
 
@@ -957,6 +958,7 @@ app.all('/shell{*rest}', (req, res) => {
     if (path.startsWith('?')) {
         path = `/${  path}`;
     }
+    path = translateLaunchParam(path);
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
@@ -991,6 +993,7 @@ const wsProxy = httpProxy.createProxyServer({
 server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/shell')) {
         req.url = req.url.replace(/^\/shell/, '') || '/';
+        req.url = translateLaunchParam(req.url);
         log.info('Proxying shell WebSocket upgrade', { url: req.url });
 
         // Track activity on WebSocket data
@@ -1235,12 +1238,12 @@ app.use((req: Request, res: Response, next) => {
 
 // Start server
 server.listen(port, () => {
-    log.info(`Apify AI Sandbox listening on port ${port}`);
+    log.info(`Apify AI Code Sandbox listening on port ${port}`);
     log.info(`Server URL: ${serverUrl}`);
 
     // Print startup information
     console.log('\n=====================================');
-    console.log('🚀 Apify AI Sandbox Started');
+    console.log('🚀 Apify AI Code Sandbox Started');
     console.log('=====================================\n');
 
     console.log('🖥️  Live shell (shown in the run Live View):');
@@ -1301,7 +1304,7 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     // Start idle timeout check
-    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 900;
+    const idleTimeoutSecs = input?.idleTimeoutSecs ?? 900;
     if (idleTimeoutSecs > 0) {
         log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
         setInterval(async () => {

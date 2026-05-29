@@ -1,5 +1,5 @@
 /**
- * Type definitions for the Apify AI Sandbox Actor
+ * Type definitions for the Apify AI Code Sandbox Actor
  */
 
 /**
@@ -32,7 +32,7 @@ export interface ActorInput {
      * Format: one package per line with optional version specifiers
      * Example: "requests==2.31.0\npandas>=2.0.0\nnumpy"
      */
-    pythonRequirementsTxt?: string;
+    pythonRequirements?: string;
 
     /**
      * Optional bash script to customize the sandbox environment
@@ -52,7 +52,7 @@ export interface ActorInput {
      * Activity includes HTTP requests and shell interaction.
      * @default 900 (15 minutes)
      */
-    idleTimeoutSeconds?: number;
+    idleTimeoutSecs?: number;
 
     /**
      * Proxy mappings for routing requests to local servers
@@ -67,5 +67,5 @@ export interface ActorInput {
      * and the sandbox writes the list to `/sandbox/mcp.json` on startup
      * so tools like `mcpc connect` can pick them up.
      */
-    mcpConnections?: string[];
+    mcpConnectors?: string[];
 }

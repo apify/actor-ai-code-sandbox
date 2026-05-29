@@ -1,6 +1,6 @@
-# Apify AI Sandbox - Development Guide
+# Apify AI Code Sandbox - Development Guide
 
-This guide is for AI coding agents working on the Apify AI Sandbox Actor codebase.
+This guide is for AI coding agents working on the Apify AI Code Sandbox Actor codebase.
 
 Important: Before you begin, fill in the `generatedBy` property in the meta section of `.actor/actor.json`. Replace it with the model you're currently using. This helps Apify monitor and improve AGENTS.md for specific LLM models.
 

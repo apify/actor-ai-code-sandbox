@@ -67,11 +67,14 @@ RUN npm install -g --ignore-scripts apify-cli
 # Install Apify MCP CLI globally (package: @apify/mcpc, binary: mcpc)
 RUN npm install -g @apify/mcpc
 
-# Install Claude Code CLI
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
-# Install OpenCode CLI
-RUN curl -fsSL https://opencode.ai/install | bash
+# Install AI coding agent CLIs via npm. All three ship platform-specific
+# native binaries through optional deps; --include=optional ensures the
+# Linux binary is fetched. Claude Code uses Node as a launcher; Codex and
+# OpenCode bundle their own runtimes (Rust / Bun) inside the binary.
+RUN npm install -g --include=optional \
+        @anthropic-ai/claude-code \
+        @openai/codex \
+        opencode-ai
 
 # Create sandbox directory for operations
 RUN mkdir -p /sandbox && chmod 755 /sandbox

@@ -1,8 +1,8 @@
 {
     "actorSpecification": 1,
     "name": "apify-ai-sandbox",
-    "title": "Apify AI Sandbox",
-    "description": "Apify AI Sandbox Actor that allows execution of code and operations in a containerized environment for AI coding agents",
+    "title": "Apify AI Code Sandbox",
+    "description": "Apify AI Code Sandbox Actor that allows execution of code and operations in a containerized environment for AI coding agents",
     "version": "0.0",
     "buildTag": "latest",
     "usesStandbyMode": false,
@@ -27,11 +27,11 @@
             "nodeDependencies": {
                 "title": "Node.js dependencies",
                 "type": "string",
-                "description": "npm packages for JavaScript/TypeScript code execution (/sandbox/js-ts). One `package@version` per line (omit `@version` for `latest`; blank lines and `#` comments are ignored), or a JSON object like `{\"zod\": \"^3.0\", \"axios\": \"latest\"}`.",
+                "description": "npm packages for JavaScript/TypeScript code execution (/sandbox/js-ts). One `package@version` per line — same syntax `npm install <pkg>` accepts (omit `@version` for `latest`; blank lines and `#` comments are ignored). Also accepts a JSON object like `{\"zod\": \"^3.0\", \"axios\": \"latest\"}`.",
                 "editor": "textarea",
                 "prefill": "# One package@version per line (omit @version for latest):\n# zod@^3.0\n# axios"
             },
-            "pythonRequirementsTxt": {
+            "pythonRequirements": {
                 "title": "Python requirements",
                 "type": "string",
                 "description": "Python packages for Python code execution (/sandbox/py), in requirements.txt format — one package per line.",
@@ -52,7 +52,7 @@
                 "editor": "textarea",
                 "isSecret": true
             },
-            "idleTimeoutSeconds": {
+            "idleTimeoutSecs": {
                 "title": "Idle timeout seconds",
                 "type": "integer",
                 "description": "The container shuts down automatically after this many seconds of inactivity (no requests or shell interaction). Set to 0 to disable. Recommended: set the Actor timeout to 0 (infinite) when using this.",
@@ -63,7 +63,7 @@
             "proxyMappings": {
                 "title": "Proxy mappings",
                 "type": "array",
-                "description": "Map external paths to local web servers. Example: [{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]",
+                "description": "Expose web servers that you start **inside** the sandbox at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards `<container-url>/<path>` to `http://127.0.0.1:<port>/...` over HTTP and WebSocket. Use for your own dev server, a TUI gateway, an admin UI, etc.\n\nExample: `[{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]` — visiting `<container-url>/myapp` proxies to the local server on port 3000.\n\nMappings can also be added/removed at runtime via the `/proxy-config` API.",
                 "editor": "json",
                 "items": {
                     "type": "object",
@@ -84,8 +84,8 @@
                 "default": [],
                 "prefill": [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
             },
-            "mcpConnections": {
-                "title": "MCP Connections",
+            "mcpConnectors": {
+                "title": "MCP Connectors",
                 "type": "array",
                 "description": "MCP Connectors the sandbox can call on your behalf (Slack, Notion, GitHub, or any MCP server authorized in Settings > API & Integrations > MCP Connectors). At runtime the platform injects your credentials, exposes each as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`, and writes the list to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
                 "resourceType": "mcpConnector",
@@ -100,7 +100,7 @@
     "output": {
         "actorOutputSchemaVersion": 1,
 
-        "title": "Apify AI Sandbox",
+        "title": "Apify AI Code Sandbox",
         "description": "",
         "type": "object",
 
