@@ -27,7 +27,7 @@ This Actor [metamorphs](https://docs.apify.com/platform/actors/development/progr
 |-------|-------------|---------|
 | `skills` | Skill packages to install (SKILLS.md files), one per line or JSON array | `apify/agent-skills` |
 | `initShellScript` | Bash script to run before Claude Code starts | - |
-| `idleTimeoutSecs` | Shutdown after inactivity | 900 |
+| `idleTimeoutSeconds` | Shutdown after inactivity | 900 |
 
 ## 📚 Skills Support
 
