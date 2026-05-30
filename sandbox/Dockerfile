@@ -132,9 +132,15 @@ ENV IS_SANDBOX=1
 # Set Claude Code max output tokens to 64000
 ENV CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000
 
-# Configure Claude Code to bypass permissions
-RUN mkdir -p /root/.claude && \
-    echo '{"permissions": {"defaultMode": "bypassPermissions"}}' > /root/.claude/settings.json
+# Pre-accept Claude Code's first-run onboarding so the CLI starts immediately.
+# Permission prompts are bypassed via --dangerously-skip-permissions in the shell
+# wrapper (see SANDBOX_BASHRC); settings.json bypass mode triggers a blocking
+# confirmation dialog, so we deliberately don't set it here.
+RUN echo '{"hasCompletedOnboarding": true}' > /root/.claude.json
+
+# Configure Codex CLI to auto-approve everything — safe inside the sandbox.
+RUN mkdir -p /root/.codex && \
+    printf 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n' > /root/.codex/config.toml
 
 # Capture tool versions at build time for fast shell startup
 COPY scripts/capture-versions.sh /tmp/capture-versions.sh

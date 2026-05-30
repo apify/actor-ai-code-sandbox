@@ -99,8 +99,17 @@ alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
-# Print welcome message
-if [ -f /app/welcome.sh ]; then
+# Auto-approve all confirmations for AI coding agents — safe inside the sandbox.
+# Claude Code's settings-based bypass mode shows a blocking confirmation dialog,
+# so we pass --dangerously-skip-permissions explicitly. Defined as a function so
+# it also applies on the non-interactive launch path (bash -c). Codex and
+# OpenCode auto-approve via their own config files.
+claude() { command claude --dangerously-skip-permissions "$@"; }
+
+# Print welcome message (once per session; the launch wrapper sources this
+# rcfile twice — to set up the env, then again for the persistent shell).
+if [ -z "$SANDBOX_WELCOME_SHOWN" ] && [ -f /app/welcome.sh ]; then
+    export SANDBOX_WELCOME_SHOWN=1
     bash /app/welcome.sh
 fi
 `;

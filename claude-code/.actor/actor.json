@@ -84,7 +84,7 @@
       "url": {
         "type": "string",
         "title": "Main page",
-        "template": "{{run.containerUrl}}/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20claude"
+        "template": "{{run.containerUrl}}/shell?launch=claude"
       }
     }
   },

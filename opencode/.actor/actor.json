@@ -60,7 +60,7 @@
       "url": {
         "type": "string",
         "title": "Main page",
-        "template": "{{run.containerUrl}}/shell?arg=-c&arg=source%20/app/sandbox_bashrc%3B%20opencode"
+        "template": "{{run.containerUrl}}/shell?launch=opencode"
       }
     }
   },
