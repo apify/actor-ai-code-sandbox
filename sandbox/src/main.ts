@@ -41,7 +41,6 @@ import { broadcastToTerminals, buildShutdownBanner } from './shutdown.js';
 import { parseSkills } from './skills.js';
 import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
-import { getShellLiveViewHTML } from './templates/live-view.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
 import type { ActorInput, ProxyMapping } from './types.js';
 
@@ -639,16 +638,8 @@ app.delete('/fs/*path', async (req: Request, res: Response) => {
 // Middleware for JSON parsing (applied to routes below)
 app.use(express.json({ limit: '50mb' }));
 
-// Root serves the live shell terminal. Apify's run Live View always loads the
-// container root, so embedding /shell/ here surfaces the interactive terminal
-// directly in the run console.
+// Landing page endpoint
 app.get('/', (_req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'text/html; charset=utf-8');
-    res.send(getShellLiveViewHTML());
-});
-
-// Docs / API landing page (moved off `/` so the Live View can show the shell).
-app.get('/info', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(
         getLandingPageHTML({
@@ -1246,12 +1237,8 @@ server.listen(port, () => {
     console.log('🚀 Apify AI Code Sandbox Started');
     console.log('=====================================\n');
 
-    console.log('🖥️  Live shell (shown in the run Live View):');
+    console.log('🏠 Landing page (open first):');
     console.log(`   GET ${serverUrl}/`);
-    console.log('       Interactive shell terminal, embedded\n');
-
-    console.log('🏠 Docs & endpoints page:');
-    console.log(`   GET ${serverUrl}/info`);
     console.log('       Connection details, quick links, and endpoint URLs\n');
 
     console.log('🗂  File browser:');
@@ -1260,7 +1247,7 @@ server.listen(port, () => {
 
     // Shell terminal endpoint
     console.log(`   GET ${serverUrl}/shell/`);
-    console.log(`       Raw interactive shell terminal\n`);
+    console.log(`       Interactive shell terminal\n`);
 
     // MCP Server URL
     console.log('📡 MCP Server Endpoint:');
