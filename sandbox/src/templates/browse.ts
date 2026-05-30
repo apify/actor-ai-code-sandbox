@@ -120,7 +120,7 @@ export function getBrowsePageHTML(): string {
                 <div class="path-label" id="pathLabel">/sandbox</div>
             </div>
             <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-                <a class="button ghost" href="/info">Docs</a>
+                <a class="button ghost" href="/">Docs</a>
                 <a class="button secondary" href="/shell/" target="_blank" rel="noopener noreferrer">Shell</a>
             </div>
         </header>
