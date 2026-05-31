@@ -214,6 +214,15 @@ app.use((req, _res, next) => {
     const isHealth = req.path === '/health';
     const isProbe = !!req.headers['x-apify-container-server-readiness-probe'];
 
+    // Debug: Log all incoming paths that start with /openclaw
+    if (req.path.startsWith('/openclaw')) {
+        log.info('DEBUG incoming request', {
+            path: req.path,
+            url: req.url,
+            originalUrl: req.originalUrl,
+        });
+    }
+
     if (!isHealth && !isProbe) {
         lastActivityAt = Date.now();
     }
@@ -1173,7 +1182,7 @@ app.use((req: Request, res: Response, next) => {
     if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
         const entry = dynamicProxies.get(matchedMapping.path)!;
 
-        // Get the extra path after the exposed path (e.g., /myapp/foo -> /foo)
+        // Get the extra path after the exposed path (e.g., /openclaw/foo -> /foo)
         let extraPath = req.path.slice(matchedMapping.path.length) || '';
         
         // Build the new URL: targetPath + extraPath + query string

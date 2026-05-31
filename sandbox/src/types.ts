@@ -6,9 +6,9 @@
  * Proxy mapping configuration for routing requests to local servers
  */
 export interface ProxyMapping {
-    /** Exposed URL path on the container (e.g., /myapp) */
+    /** Exposed URL path on the container (e.g., /openclaw) */
     path: string;
-    /** Full URL of the local service to proxy to (e.g., http://127.0.0.1:3000/myapp) */
+    /** Full URL of the local service to proxy to (e.g., http://127.0.0.1:18789/openclaw) */
     target: string;
 }
 
@@ -57,7 +57,7 @@ export interface ActorInput {
     /**
      * Proxy mappings for routing requests to local servers
      * Maps exposed paths to local service URLs
-     * Example: [{ "path": "/myapp", "target": "http://127.0.0.1:3000/myapp" }]
+     * Example: [{ "path": "/openclaw", "target": "http://127.0.0.1:18789/openclaw" }]
      */
     proxyMappings?: ProxyMapping[];
 

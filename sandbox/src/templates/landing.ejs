@@ -158,11 +158,11 @@
             <div data-no-md class="proxy-form">
                 <div style="flex: 1; min-width: 130px;">
                     <label class="field-label" for="newProxyPath">Exposed path</label>
-                    <input class="input" type="text" id="newProxyPath" placeholder="/myapp">
+                    <input class="input" type="text" id="newProxyPath" placeholder="/openclaw">
                 </div>
                 <div style="flex: 2; min-width: 240px;">
                     <label class="field-label" for="newProxyTarget">Local service URL</label>
-                    <input class="input" type="text" id="newProxyTarget" placeholder="http://127.0.0.1:3000/myapp">
+                    <input class="input" type="text" id="newProxyTarget" placeholder="http://127.0.0.1:18789/openclaw">
                 </div>
                 <button class="button" onclick="addProxyMapping()">Add mapping</button>
             </div>
@@ -176,10 +176,10 @@
 <span class="hl-comment"># Add a mapping</span>
 <span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/proxy-config</span> \
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
-  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">path</span>": "/myapp", "<span class="hl-key">target</span>": "http://127.0.0.1:3000/myapp"}'</span>
+  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">path</span>": "/openclaw", "<span class="hl-key">target</span>": "http://127.0.0.1:18789/openclaw"}'</span>
 
 <span class="hl-comment"># Remove a mapping</span>
-<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/proxy-config/myapp</span></pre>
+<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/proxy-config/openclaw</span></pre>
             </div>
             </div>
         </section>

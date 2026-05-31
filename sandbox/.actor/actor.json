@@ -71,12 +71,12 @@
                         "path": {
                             "title": "Exposed path",
                             "type": "string",
-                            "description": "External URL path (e.g., /myapp)"
+                            "description": "External URL path (e.g., /openclaw)"
                         },
                         "target": {
                             "title": "Local service URL",
                             "type": "string",
-                            "description": "Full URL of local service (e.g., http://127.0.0.1:3000/myapp)"
+                            "description": "Full URL of local service (e.g., http://127.0.0.1:18789/openclaw)"
                         }
                     },
                     "required": ["path", "target"]

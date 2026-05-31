@@ -1,17 +1,17 @@
 {
   "actorSpecification": 1,
-  "name": "claude-code",
-  "title": "Claude Code",
-  "description": "Instant access to Claude Code - Anthropic's AI coding assistant running on Apify",
+  "name": "openclaw",
+  "title": "OpenClaw",
+  "description": "Instant access to OpenClaw - Open-source AI coding assistant running on Apify",
   "version": "0.0",
   "buildTag": "latest",
   "usesStandbyMode": false,
   "meta": {
-    "generatedBy": "claude-haiku-4.5"
+    "generatedBy": "claude-opus-4-6"
   },
   "input": {
     "title": "Actor input schema",
-    "description": "Just run the Actor and use Claude Code with Apify. The Claude Code window will automatically open in the Actor run console.",
+    "description": "Just run the Actor and use OpenClaw with Apify. The OpenClaw window will automatically open in the Actor run console.",
     "type": "object",
     "schemaVersion": 1,
     "properties": {
@@ -37,46 +37,22 @@
         "editor": "textarea",
         "isSecret": true
       },
-       "idleTimeoutSeconds": {
-         "title": "Idle timeout seconds",
-         "type": "integer",
-         "description": "Automatically shut down after this many seconds of inactivity. Set to 0 to disable. Recommended: set Actor timeout to 0 (infinite) when using this.",
-         "default": 900,
-         "editor": "number",
-         "prefill": 900
-       },
-       "proxyMappings": {
-         "title": "Proxy mappings",
-         "type": "array",
-         "description": "Map external paths to local web servers. Example: [{\"path\": \"/myapp\", \"target\": \"http://127.0.0.1:3000/myapp\"}]",
-         "editor": "json",
-         "items": {
-           "type": "object",
-           "properties": {
-             "path": {
-               "title": "Exposed path",
-               "type": "string",
-               "description": "External URL path (e.g., /openclaw)"
-             },
-             "target": {
-               "title": "Local service URL",
-               "type": "string",
-               "description": "Full URL of local service (e.g., http://127.0.0.1:18789/openclaw)"
-             }
-           },
-           "required": ["path", "target"]
-         },
-         "default": [],
-         "prefill": [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
-       }
-     },
+      "idleTimeoutSeconds": {
+        "title": "Idle timeout seconds",
+        "type": "integer",
+        "description": "Automatically shut down after this many seconds of inactivity. Set to 0 to disable. Recommended: set Actor timeout to 0 (infinite) when using this.",
+        "default": 0,
+        "editor": "number",
+        "prefill": 0
+      }
+    },
 
-     "required": []
+    "required": []
   },
   "output": {
     "actorOutputSchemaVersion": 1,
 
-    "title": "Claude Code",
+    "title": "OpenClaw",
     "description": "",
     "type": "object",
 
@@ -84,7 +60,7 @@
       "url": {
         "type": "string",
         "title": "Main page",
-        "template": "{{run.containerUrl}}/shell?launch=claude"
+        "template": "{{run.containerUrl}}/shell?launch=openclaw%20tui"
       }
     }
   },

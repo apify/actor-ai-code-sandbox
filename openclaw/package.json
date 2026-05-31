@@ -1,0 +1,21 @@
+{
+  "name": "openclaw-sandbox",
+  "version": "0.0.1",
+  "description": "OpenClaw Sandbox - Metamorphs into Apify AI Sandbox",
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "start": "node dist/main.js",
+    "build": "tsc -p tsconfig.build.json"
+  },
+  "dependencies": {
+    "apify": "^3.4.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3"
+  }
+}
