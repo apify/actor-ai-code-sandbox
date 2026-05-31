@@ -40,7 +40,11 @@ RUN [ -n "$APIFY_IS_AT_HOME" ] || npm run test:unit
 # Stage 2: Runtime - Node.js image
 FROM node:24-trixie-slim
 
-# Install required dependencies for sandbox operations
+# Install required dependencies for sandbox operations.
+# ttyd is copied from the builder as a prebuilt binary, so the runtime only
+# needs the *runtime* shared libraries it links against (libjson-c5,
+# libwebsockets19t64) — not the heavy `-dev` packages and their transitive
+# header/static-lib dependency chain used to compile it.
 RUN apt-get update && apt-get install -y \
     bash \
     curl \
@@ -50,22 +54,23 @@ RUN apt-get update && apt-get install -y \
     python3-venv \
     python3-pip \
     ca-certificates \
-    libjson-c-dev \
-    libwebsockets-dev \
+    libjson-c5 \
+    libwebsockets19t64 \
     libsecret-1-0 \
     procps \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
-# Install tsx globally for TypeScript execution in execute-code endpoint
-RUN npm install -g tsx
-
-# Install Apify CLI globally
-# --ignore-scripts works around apify-client's `only-allow pnpm` preinstall hook
-RUN npm install -g --ignore-scripts apify-cli
-
-# Install Apify MCP CLI globally (package: @apify/mcpc, binary: mcpc)
-RUN npm install -g @apify/mcpc
+# Install global CLI tooling in a single layer, then drop the npm cache so it
+# doesn't bloat the image:
+#   - tsx: TypeScript execution in the execute-code endpoint
+#   - apify-cli: --ignore-scripts works around apify-client's `only-allow pnpm`
+#     preinstall hook
+#   - @apify/mcpc: Apify MCP CLI (binary: mcpc)
+RUN npm install -g tsx \
+    && npm install -g --ignore-scripts apify-cli \
+    && npm install -g @apify/mcpc \
+    && npm cache clean --force
 
 # Install AI coding agent CLIs via npm. All three ship platform-specific
 # native binaries through optional deps; --include=optional ensures the
@@ -74,7 +79,8 @@ RUN npm install -g @apify/mcpc
 RUN npm install -g --include=optional \
         @anthropic-ai/claude-code \
         @openai/codex \
-        opencode-ai
+        opencode-ai \
+    && npm cache clean --force
 
 # Create sandbox directory for operations
 RUN mkdir -p /sandbox && chmod 755 /sandbox
@@ -82,8 +88,8 @@ RUN mkdir -p /sandbox && chmod 755 /sandbox
 # Create Python sandbox directory with venv and pre-install apify-client
 RUN mkdir -p /sandbox/py && chmod 755 /sandbox/py && \
     python3 -m venv /sandbox/py/venv && \
-    /sandbox/py/venv/bin/pip install --upgrade pip && \
-    /sandbox/py/venv/bin/pip install apify-client && \
+    /sandbox/py/venv/bin/pip install --no-cache-dir --upgrade pip && \
+    /sandbox/py/venv/bin/pip install --no-cache-dir apify-client && \
     echo "apify-client pre-installed in Python venv"
 
 # Create JS/TS sandbox directory with proper package.json and pre-install apify-client
@@ -91,6 +97,7 @@ RUN mkdir -p /sandbox/js-ts && chmod 755 /sandbox/js-ts && \
     cd /sandbox/js-ts && \
     echo '{"name":"apify-sandbox-js-ts","version":"1.0.0","description":"Sandbox for JS/TS code execution","type":"module","dependencies":{"apify-client":"*"}}' > package.json && \
     npm install --ignore-scripts && \
+    npm cache clean --force && \
     echo "apify-client pre-installed in Node.js environment"
 
 # Copy AGENTS.md to sandbox for AI coding agents
@@ -112,6 +119,11 @@ COPY --from=builder /build/dist /app/dist
 # Copy ttyd binary from builder
 COPY --from=builder /usr/local/bin/ttyd /usr/local/bin/ttyd
 
+# Verify the prebuilt ttyd binary can load its runtime shared libraries
+# (libwebsockets, libjson-c). Fails the build early if a runtime lib package is
+# missing or renamed, rather than shipping a broken interactive shell.
+RUN ttyd --version
+
 # Copy package.json and production node_modules from builder
 COPY --from=builder /build/package.json /app/package.json
 COPY --from=builder /build/package-lock.json /app/package-lock.json
@@ -121,7 +133,7 @@ RUN mkdir -p /root/.config/opencode
 COPY --from=builder /build/artifacts/opencode.json /root/.config/opencode/opencode.json
 
 # Install production dependencies only
-RUN npm install --production
+RUN npm install --production && npm cache clean --force
 
 # Add local bin to PATH for CLI tools (Claude at ~/.local/bin, OpenCode at ~/.opencode/bin)
 ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH"
