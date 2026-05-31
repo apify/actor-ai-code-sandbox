@@ -40,6 +40,13 @@ cat > ~/.openclaw/openclaw.json << 'CLAWEOF'
       "workspace": "~/.openclaw/workspace"
     }
   },
+  "tools": {
+    "exec": {
+      "host": "gateway",
+      "security": "full",
+      "ask": "off"
+    }
+  },
   "models": {
     "mode": "merge",
     "providers": {
@@ -73,6 +80,16 @@ openclaw onboard \\
   --gateway-port 18789 \\
   --skip-daemon \\
   --skip-health
+# Auto-approve all tool actions (YOLO) — safe inside the sandbox. The effective
+# policy is the stricter of two layers, so open both: the requested policy in
+# openclaw.json (tools.exec, set above) and the host-local approvals file below.
+openclaw exec-policy preset yolo || true
+cat > ~/.openclaw/exec-approvals.json << 'APPROVEEOF'
+{
+  "version": 1,
+  "defaults": { "security": "full", "ask": "off", "askFallback": "full" }
+}
+APPROVEEOF
 nohup openclaw gateway run --bind loopback --port 18789 > /tmp/openclaw-gateway.log 2>&1 &
 sleep 3
 echo "OpenClaw started: http://127.0.0.1:18789/openclaw/"`;

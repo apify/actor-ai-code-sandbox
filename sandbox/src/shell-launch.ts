@@ -1,13 +1,33 @@
 /**
  * Translate `?launch=<cmd>` on a /shell URL into the `?arg=-c&arg=...` form
- * ttyd expects. `?launch=` is a convenience: bash invoked with `-c` does not
- * source rcfiles, so we explicitly prepend `source /app/sandbox_bashrc;` to
- * ensure the launched command sees the same env as an interactive shell.
+ * ttyd expects, running <cmd> inside a persistent interactive shell.
+ *
+ * Why the interactive wrapper: ttyd has no `--once`, so when the spawned
+ * process exits the browser reconnects and ttyd respawns it. A bare
+ * `bash -c "...; <cmd>"` exits the moment <cmd> finishes (or fails to start),
+ * which produced a restart loop. Instead we:
+ *   1. source the sandbox rcfile (so <cmd> sees the same env + wrappers),
+ *   2. echo the command so it's visible (as if typed at the prompt),
+ *   3. run it, surfacing a non-zero exit status,
+ *   4. `exec` an interactive shell so the terminal stays alive afterwards —
+ *      keeping any output or errors on screen instead of looping away.
  *
  * Idempotent: if `launch` is absent, the path is returned unchanged. Other
  * query params are preserved in order.
  */
-const BASHRC_SOURCE = 'source /app/sandbox_bashrc;';
+const BASHRC = '/app/sandbox_bashrc';
+const INTERACTIVE_SHELL = `exec bash --rcfile ${BASHRC}`;
+
+/** Build the `bash -c` payload for a launched command. */
+const buildLaunchCommand = (launch: string): string => {
+    if (!launch.trim()) return INTERACTIVE_SHELL;
+    return [
+        `source ${BASHRC};`,
+        `echo "$ ${launch}";`,
+        `${launch} || echo "[command exited with status $?]";`,
+        INTERACTIVE_SHELL,
+    ].join(' ');
+};
 
 export const translateLaunchParam = (path: string): string => {
     const queryIdx = path.indexOf('?');
@@ -19,7 +39,7 @@ export const translateLaunchParam = (path: string): string => {
     if (launch === null) return path;
 
     params.delete('launch');
-    const cmd = launch.trim() ? `${BASHRC_SOURCE} ${launch}` : BASHRC_SOURCE;
+    const cmd = buildLaunchCommand(launch);
 
     const parts: string[] = [
         `arg=${encodeURIComponent('-c')}`,
