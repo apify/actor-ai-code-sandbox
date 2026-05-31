@@ -14,6 +14,9 @@ interface LandingPageOptions {
 const templatePath = join(dirname(fileURLToPath(import.meta.url)), 'landing.ejs');
 const landingTemplate = readFileSync(templatePath, 'utf8');
 
+const stylesPath = join(dirname(fileURLToPath(import.meta.url)), 'landing.css');
+const landingStyles = readFileSync(stylesPath, 'utf8');
+
 const STRIP_SELECTOR = 'script, style, [data-no-md], .copy-btn, .collapse-btn, .status-badge';
 
 const nhm = new NodeHtmlMarkdown(
@@ -43,6 +46,7 @@ export function getLandingPageHTML({ serverUrl, isLocalMode }: LandingPageOption
         serverUrl,
         modeLabel,
         isLocalMode,
+        styles: landingStyles,
     });
 }
 
