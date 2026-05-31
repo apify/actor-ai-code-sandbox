@@ -39,8 +39,10 @@ const parseLines = (raw: string): string[] => {
 
 /**
  * Parse the user-supplied `skills` input into a de-duplicated list of skill
- * identifiers for `installSkills`. Accepts either:
- *  - one skill per line (e.g. `anthropics/skills`; blank lines and `#` comments ignored), or
+ * identifiers for `installSkills`. Each identifier is passed through unchanged to
+ * the `skills` CLI, which accepts a GitHub `owner/repo` (e.g. `anthropics/skills`)
+ * or a repo URL (e.g. `https://github.com/anthropics/skills`). Accepts either:
+ *  - one skill per line (blank lines and `#` comments ignored), or
  *  - a JSON array of skill name strings (input starting with `[` or `{` is parsed
  *    as JSON; any non-array JSON yields no skills).
  *

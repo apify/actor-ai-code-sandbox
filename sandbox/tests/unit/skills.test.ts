@@ -100,6 +100,29 @@ describe('parseSkills', () => {
         });
     });
 
+    describe('GitHub repo URLs', () => {
+        it('passes a repo URL through unchanged (line format)', () => {
+            assert.deepEqual(parseSkills('https://github.com/anthropics/skills'), [
+                'https://github.com/anthropics/skills',
+            ]);
+        });
+
+        it('passes a repo URL with a subpath through unchanged', () => {
+            const input = 'https://github.com/anthropics/skills/tree/main/skills/web-design';
+            assert.deepEqual(parseSkills(input), [input]);
+        });
+
+        it('mixes owner/repo shorthand and repo URLs across lines', () => {
+            const input = 'apify/agent-skills\nhttps://github.com/anthropics/skills';
+            assert.deepEqual(parseSkills(input), ['apify/agent-skills', 'https://github.com/anthropics/skills']);
+        });
+
+        it('passes repo URLs through unchanged (JSON array)', () => {
+            const input = '["apify/agent-skills", "https://github.com/anthropics/skills"]';
+            assert.deepEqual(parseSkills(input), ['apify/agent-skills', 'https://github.com/anthropics/skills']);
+        });
+    });
+
     describe('array input (legacy stringList)', () => {
         it('cleans and de-duplicates a string array', () => {
             const input = [' apify/agent-skills ', 'anthropics/skills', 'apify/agent-skills', ''];

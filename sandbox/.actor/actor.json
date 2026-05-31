@@ -19,10 +19,10 @@
             "skills": {
                 "title": "Skills",
                 "type": "string",
-                "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line, e.g. `anthropics/skills` (blank lines and `#` comments are ignored), or a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",
+                "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line — a GitHub `owner/repo` (e.g. `anthropics/skills`) or repo URL (e.g. `https://github.com/anthropics/skills`); blank lines and `#` comments are ignored. Also accepts a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",
                 "editor": "textarea",
                 "default": "apify/agent-skills",
-                "prefill": "apify/agent-skills\n# One skill per line, e.g. anthropics/skills"
+                "prefill": "apify/agent-skills\n# One skill per line — owner/repo or a GitHub repo URL:\n# anthropics/skills\n# https://github.com/anthropics/skills"
             },
             "nodeDependencies": {
                 "title": "Node.js dependencies",

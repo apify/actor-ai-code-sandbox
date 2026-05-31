@@ -416,7 +416,7 @@ mkdir -p /sandbox/custom-data && chmod 755 /sandbox/custom-data
 
 Install skill packages that provide specialized instructions for AI coding agents. Skills are SKILLS.md files that enhance agent capabilities.
 
-- Specify skills via the "Skills" input — one package per line (e.g. `anthropics/skills`), or a JSON array
+- Specify skills via the "Skills" input — one per line: a GitHub `owner/repo` (e.g. `anthropics/skills`) or repo URL (e.g. `https://github.com/anthropics/skills`), or a JSON array
 - Example: `apify/agent-skills`
 - Skills are installed globally during Actor startup
 - For more info see [skills.sh](https://skills.sh/)
