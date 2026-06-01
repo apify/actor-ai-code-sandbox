@@ -47,10 +47,11 @@ RUN [ -n "$APIFY_IS_AT_HOME" ] || npm run test:unit
 FROM node:24-trixie-slim
 
 # Install required dependencies for sandbox operations.
-# ttyd is copied from the builder as a prebuilt binary, so the runtime only
-# needs the *runtime* shared libraries it links against (libjson-c5,
-# libwebsockets19t64) — not the heavy `-dev` packages and their transitive
-# header/static-lib dependency chain used to compile it.
+# ttyd is compiled from source in the builder stage and copied into this stage
+# as a finished binary (see `COPY --from=builder .../ttyd` below), so the runtime
+# only needs the *runtime* shared libraries it links against (libjson-c5,
+# libwebsockets19t64) — not the `-dev` packages, headers, and build toolchain
+# that the compile step required.
 RUN apt-get update && apt-get install -y \
     bash \
     curl \
@@ -125,7 +126,7 @@ COPY --from=builder /build/dist /app/dist
 # Copy ttyd binary from builder
 COPY --from=builder /usr/local/bin/ttyd /usr/local/bin/ttyd
 
-# Verify the prebuilt ttyd binary can load its runtime shared libraries
+# Verify the copied-in ttyd binary can load its runtime shared libraries
 # (libwebsockets, libjson-c). Fails the build early if a runtime lib package is
 # missing or renamed, rather than shipping a broken interactive shell.
 RUN ttyd --version
