@@ -15,8 +15,9 @@ export interface ProxyMapping {
 export interface ActorInput {
     /**
      * Skill packages to install for the AI coding agent (SKILLS.md files).
-     * Accepts one skill per line (e.g. `anthropics/skills`; blank lines and
-     * `#` comments ignored) or a JSON array of skill name strings.
+     * Accepts one skill per line — a GitHub `owner/repo` (e.g. `anthropics/skills`)
+     * or repo URL (e.g. `https://github.com/anthropics/skills`); blank lines and
+     * `#` comments ignored — or a JSON array of skill name strings.
      */
     skills?: string;
 

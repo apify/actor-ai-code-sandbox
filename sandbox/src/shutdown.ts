@@ -88,3 +88,52 @@ export const buildShutdownBanner = (reason: string, runId?: string): string => {
 
     return `${lines.join('\r\n')}\r\n`;
 };
+
+/**
+ * ttyd command byte for terminal output. ttyd's WebSocket subprotocol prefixes
+ * every server→client message with a one-byte command; '0' (0x30) means "write
+ * the rest straight to the terminal".
+ */
+const TTYD_OUTPUT_COMMAND = 0x30; // '0'
+
+/** WebSocket header byte: FIN set, opcode 0x2 (binary frame). */
+const WS_FIN_BINARY = 0x82;
+
+/**
+ * Encode text as a ttyd output message inside a single binary WebSocket frame,
+ * ready to write straight to a browser's terminal socket.
+ *
+ * The terminal is served through a proxy (browser ↔ this Actor ↔ ttyd). When the
+ * Actor stops, the proxy stops with it, so relaying a banner the long way round
+ * (PTY → ttyd → proxy → browser) usually loses the race against process exit.
+ * Writing a ready-made frame directly to the browser-facing socket hands the
+ * bytes to the kernel immediately, so they reach the terminal even if the
+ * process exits a moment later.
+ *
+ * Server→client frames are never masked (RFC 6455 §5.1), so the frame is just a
+ * FIN+binary header, the payload length, and the payload (command byte + text).
+ *
+ * @param text - Text to display in the terminal. Use `\r\n` line breaks.
+ * @returns The encoded WebSocket frame.
+ */
+export const encodeTtydOutputMessage = (text: string): Buffer => {
+    const payload = Buffer.concat([Buffer.from([TTYD_OUTPUT_COMMAND]), Buffer.from(text, 'utf8')]);
+    const len = payload.length;
+
+    let header: Buffer;
+    if (len < 126) {
+        header = Buffer.from([WS_FIN_BINARY, len]);
+    } else if (len < 0x10000) {
+        // 126 signals a 16-bit length follows.
+        // eslint-disable-next-line no-bitwise -- splitting the length into bytes needs shifts/masks
+        header = Buffer.from([WS_FIN_BINARY, 126, (len >> 8) & 0xff, len & 0xff]);
+    } else {
+        // 127 signals a 64-bit length follows.
+        header = Buffer.alloc(10);
+        header[0] = WS_FIN_BINARY;
+        header[1] = 127;
+        header.writeBigUInt64BE(BigInt(len), 2);
+    }
+
+    return Buffer.concat([header, payload]);
+};

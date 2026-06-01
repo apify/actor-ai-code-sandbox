@@ -12,8 +12,14 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Build ttyd from source
-RUN git clone --depth 1 https://github.com/tsl0922/ttyd.git /tmp/ttyd \
+# Build ttyd from source, pinned for reproducible builds. The shutdown banner
+# writes ttyd's own WebSocket output frames directly to the browser terminal
+# (see sandbox/src/shutdown.ts, encodeTtydOutputMessage), so a protocol change
+# could silently stop the banner from rendering. Before bumping this version,
+# confirm terminal OUTPUT is still command byte '0' in ttyd's client protocol:
+# https://github.com/tsl0922/ttyd/blob/main/html/src/components/terminal/xterm/index.ts (the Command enum).
+ARG TTYD_VERSION=1.7.7
+RUN git clone --branch "${TTYD_VERSION}" --depth 1 https://github.com/tsl0922/ttyd.git /tmp/ttyd \
     && cd /tmp/ttyd && mkdir build && cd build \
     && cmake .. \
     && make && make install
