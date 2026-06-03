@@ -42,6 +42,13 @@ import { parseSkills } from './skills.js';
 import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
 import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
+import {
+    appendTtydOutput,
+    buildShellUnavailableMessage,
+    isTtydStartupCrash,
+    nextTtydRestartDelayMs,
+    TTYD_RESTART_MIN_MS,
+} from './ttyd.js';
 import type { ActorInput, ProxyMapping } from './types.js';
 
 // Track initialization state
@@ -875,24 +882,71 @@ app.post('/exec', async (req: Request, res: Response) => {
 // ============================================================================
 const shellPort = 7681;
 
+// ttyd's last words: the tail of its stdout/stderr (or a spawn error). Recorded
+// so a crash — e.g. a missing shared library — shows up in the Actor log and in
+// the /shell proxy response instead of a bare exit code. The delay grows as ttyd
+// keeps failing to start (see nextTtydRestartDelayMs).
+let lastTtydError = '';
+let ttydRestartDelayMs = TTYD_RESTART_MIN_MS;
+
 // Spawn ttyd process
 const spawnTtyd = () => {
     log.info('Spawning ttyd process...', { port: shellPort });
+    const startedAt = Date.now();
 
-    // Run ttyd with custom bashrc for better UX and environment alignment
+    // Run ttyd with custom bashrc for better UX and environment alignment. Pipe
+    // its stdio (rather than ignoring it) so a startup failure is captured.
     const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
-        stdio: 'ignore',
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: SANDBOX_DIR,
         env: { ...process.env },
     });
 
+    // Keep only the tail of ttyd's output — its startup/error messages are short.
+    let recentOutput = '';
+    const capture = (chunk: Buffer): void => {
+        recentOutput = appendTtydOutput(recentOutput, chunk.toString());
+    };
+    ttyd.stdout?.on('data', capture);
+    ttyd.stderr?.on('data', capture);
+
+    // Schedule exactly one restart per spawn: a failed spawn emits 'error' (no
+    // 'exit'), a started process emits 'exit'; guard against both firing.
+    let settled = false;
+    const restartAfter = (crashed: boolean): void => {
+        if (settled) return;
+        settled = true;
+        const delay = crashed ? ttydRestartDelayMs : TTYD_RESTART_MIN_MS;
+        ttydRestartDelayMs = nextTtydRestartDelayMs(ttydRestartDelayMs, crashed);
+        setTimeout(spawnTtyd, delay);
+    };
+
     ttyd.on('error', (err) => {
+        lastTtydError = err.message;
         log.error('Failed to start ttyd', { error: err.message });
+        restartAfter(true);
     });
 
-    ttyd.on('exit', (code) => {
-        log.warning('ttyd process exited', { code });
-        setTimeout(spawnTtyd, 5000);
+    ttyd.on('exit', (code, signal) => {
+        const aliveMs = Date.now() - startedAt;
+        const output = recentOutput.trim();
+        if (output) lastTtydError = output;
+
+        // A fast exit means ttyd never really came up (missing shared library,
+        // port already bound, bad args). Shout, since the old fixed-5s retry with
+        // no detail produced an invisible crash loop behind "Shell Proxy Error".
+        const crashed = isTtydStartupCrash(aliveMs);
+        if (crashed) {
+            log.error('ttyd exited immediately — interactive shell is unavailable', {
+                code,
+                signal,
+                aliveMs,
+                output: output || '(no output captured)',
+            });
+        } else {
+            log.warning('ttyd process exited; restarting', { code, signal, aliveMs });
+        }
+        restartAfter(crashed);
     });
 };
 
@@ -1008,9 +1062,17 @@ app.all('/shell{*rest}', (req, res) => {
     });
 
     proxyReq.on('error', (err) => {
-        log.error('Manual proxy error', { error: err.message });
+        // ECONNREFUSED means ttyd isn't listening — it almost always crashed on
+        // startup (see spawnTtyd, which records its last output in lastTtydError).
+        // Surface that as a 503 instead of an opaque 500 so the cause is visible.
+        const ttydDown = (err as NodeJS.ErrnoException).code === 'ECONNREFUSED';
+        log.error('Manual proxy error', { error: err.message, ttydDown });
         if (!res.headersSent) {
-            res.status(500).send('Shell Proxy Error');
+            if (ttydDown) {
+                res.status(503).type('text/plain').send(buildShellUnavailableMessage(lastTtydError));
+            } else {
+                res.status(502).type('text/plain').send(`Shell proxy error: ${err.message}`);
+            }
         }
     });
 
@@ -1021,6 +1083,18 @@ app.all('/shell{*rest}', (req, res) => {
 const wsProxy = httpProxy.createProxyServer({
     target: `http://127.0.0.1:${shellPort}`,
     ws: true,
+});
+
+// Without this handler a WebSocket upgrade to a down ttyd emits an 'error' with
+// no listener, which Node escalates to an uncaught exception that can take down
+// the whole server. ttyd is restarted by spawnTtyd; just close the browser
+// socket so the terminal shows its reconnect overlay and retries.
+wsProxy.on('error', (err, _req, resOrSocket) => {
+    log.warning('Shell WebSocket proxy error', { error: (err as Error).message });
+    const socket = resOrSocket as Duplex | undefined;
+    if (socket && typeof socket.destroy === 'function' && !socket.destroyed) {
+        socket.destroy();
+    }
 });
 
 server.on('upgrade', (req, socket, head) => {
