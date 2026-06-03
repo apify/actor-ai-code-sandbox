@@ -50,8 +50,9 @@ FROM node:24-trixie-slim
 # ttyd is compiled from source in the builder stage and copied into this stage
 # as a finished binary (see `COPY --from=builder .../ttyd` below), so the runtime
 # only needs the *runtime* shared libraries it links against (libjson-c5,
-# libwebsockets19t64) — not the `-dev` packages, headers, and build toolchain
-# that the compile step required.
+# libwebsockets19t64, libuv1t64) — not the `-dev` packages, headers, and build
+# toolchain that the compile step required. The `t64` suffix reflects Debian
+# trixie's 64-bit time_t transition.
 RUN apt-get update && apt-get install -y \
     bash \
     curl \
@@ -63,6 +64,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     libjson-c5 \
     libwebsockets19t64 \
+    libuv1t64 \
     libsecret-1-0 \
     procps \
     jq \
@@ -127,8 +129,8 @@ COPY --from=builder /build/dist /app/dist
 COPY --from=builder /usr/local/bin/ttyd /usr/local/bin/ttyd
 
 # Verify the copied-in ttyd binary can load its runtime shared libraries
-# (libwebsockets, libjson-c). Fails the build early if a runtime lib package is
-# missing or renamed, rather than shipping a broken interactive shell.
+# (libwebsockets, libjson-c, libuv). Fails the build early if a runtime lib
+# package is missing or renamed, rather than shipping a broken interactive shell.
 RUN ttyd --version
 
 # Copy package.json and production node_modules from builder
