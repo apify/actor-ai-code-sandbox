@@ -49,10 +49,15 @@ FROM node:24-trixie-slim
 # Install required dependencies for sandbox operations.
 # ttyd is compiled from source in the builder stage and copied into this stage
 # as a finished binary (see `COPY --from=builder .../ttyd` below), so the runtime
-# only needs the *runtime* shared libraries it links against (libjson-c5,
-# libwebsockets19t64, libuv1t64) — not the `-dev` packages, headers, and build
-# toolchain that the compile step required. The `t64` suffix reflects Debian
-# trixie's 64-bit time_t transition.
+# only needs the shared libraries it uses — not the `-dev` packages, headers, and
+# build toolchain that the compile step required:
+#   - libjson-c5, libwebsockets19t64, libuv1t64: libraries ttyd links against
+#     (the `t64` suffix reflects Debian trixie's 64-bit time_t transition).
+#   - libwebsockets-evlib-uv: the libuv event-loop plugin that libwebsockets
+#     dlopen()s when ttyd creates its context. It is NOT a link-time dependency,
+#     so `ldd ttyd` and `ttyd --version` won't reveal it's missing — but without
+#     it ttyd dies at runtime with "lws_create_context: failed to load evlib_uv"
+#     and the interactive shell never starts. Keep it when trimming this list.
 RUN apt-get update && apt-get install -y \
     bash \
     curl \
@@ -65,6 +70,7 @@ RUN apt-get update && apt-get install -y \
     libjson-c5 \
     libwebsockets19t64 \
     libuv1t64 \
+    libwebsockets-evlib-uv \
     libsecret-1-0 \
     procps \
     jq \
@@ -128,10 +134,15 @@ COPY --from=builder /build/dist /app/dist
 # Copy ttyd binary from builder
 COPY --from=builder /usr/local/bin/ttyd /usr/local/bin/ttyd
 
-# Verify the copied-in ttyd binary can load its runtime shared libraries
-# (libwebsockets, libjson-c, libuv). Fails the build early if a runtime lib
-# package is missing or renamed, rather than shipping a broken interactive shell.
-RUN ttyd --version
+# Smoke-test that ttyd actually starts its server — not just that it loads
+# (`ttyd --version`). Creating the libwebsockets context dlopen()s the libuv
+# event-loop plugin (libwebsockets-evlib-uv), which `--version` never exercises,
+# so a missing plugin or runtime lib fails the build here instead of breaking the
+# shell at run time. ttyd is a long-running server, so cap it with `timeout` and
+# assert it reached "Listening on port".
+RUN OUTPUT="$(timeout 5 ttyd -p 7681 -a -W bash 2>&1 || true)"; \
+    echo "$OUTPUT"; \
+    echo "$OUTPUT" | grep -q "Listening on port"
 
 # Copy package.json and production node_modules from builder
 COPY --from=builder /build/package.json /app/package.json
