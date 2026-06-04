@@ -124,15 +124,29 @@ RUN npm install --production
 # Add local bin to PATH for CLI tools (Claude at ~/.local/bin, OpenCode at ~/.opencode/bin)
 ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH"
 
-# Set IS_SANDBOX environment variable globally
+# Mark the container as a trusted sandbox.
+# Claude Code refuses to run in bypassPermissions / --dangerously-skip-permissions
+# mode as root unless IS_SANDBOX is exactly "1", so this is what lets the
+# pre-configured bypass mode below actually take effect for the root user.
 ENV IS_SANDBOX=1
 
-# Set Claude Code max output tokens to 64000
+# Tell Claude Code it is running inside a trusted sandbox so it auto-trusts every
+# working directory and never shows the interactive "Do you trust this folder?"
+# safety prompt on startup. This flag only affects the folder-trust check.
+ENV CLAUDE_CODE_SANDBOXED=1
+
+# Set Claude Code max output tokens
 ENV CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000
 
-# Configure Claude Code to bypass permissions
+# Pre-configure Claude Code with sandbox-friendly defaults so the user never has
+# to answer interactive prompts on launch:
+#   - permissions.defaultMode=bypassPermissions  -> run tools without asking
+#   - skipDangerousModePermissionPrompt=true      -> skip the one-time "Bypass
+#     Permissions mode" disclaimer. This is required: without it Claude silently
+#     downgrades bypassPermissions in non-interactive sessions, so tools would
+#     still prompt for approval.
 RUN mkdir -p /root/.claude && \
-    echo '{"permissions": {"defaultMode": "bypassPermissions"}}' > /root/.claude/settings.json
+    echo '{"permissions":{"defaultMode":"bypassPermissions"},"skipDangerousModePermissionPrompt":true}' > /root/.claude/settings.json
 
 # Capture tool versions at build time for fast shell startup
 COPY scripts/capture-versions.sh /tmp/capture-versions.sh
