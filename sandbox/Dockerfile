@@ -164,11 +164,18 @@ ENV IS_SANDBOX=1
 # Set Claude Code max output tokens to 64000
 ENV CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000
 
-# Pre-accept Claude Code's first-run onboarding so the CLI starts immediately.
-# Permission prompts are bypassed via --dangerously-skip-permissions in the shell
-# wrapper (see SANDBOX_BASHRC); settings.json bypass mode triggers a blocking
-# confirmation dialog, so we deliberately don't set it here.
-RUN echo '{"hasCompletedOnboarding": true}' > /root/.claude.json
+# Pre-accept every Claude Code first-run prompt so the CLI starts straight into
+# a usable session — no setup wizard. Two separate config files are involved:
+#   - hasCompletedOnboarding (~/.claude.json) skips the theme/login onboarding.
+#   - skipDangerousModePermissionPrompt (~/.claude/settings.json) skips the
+#     "Bypass Permissions mode" confirmation that --dangerously-skip-permissions
+#     (see SANDBOX_BASHRC) shows on first run. This is the exact flag Claude Code
+#     itself writes to user settings when you choose "Yes, I accept", so seeding
+#     it makes the dialog disappear. It also auto-trusts the working directory in
+#     bypass mode, so the folder-trust prompt is skipped too. Safe in this sandbox.
+RUN echo '{"hasCompletedOnboarding": true}' > /root/.claude.json && \
+    mkdir -p /root/.claude && \
+    echo '{"skipDangerousModePermissionPrompt": true}' > /root/.claude/settings.json
 
 # Configure Codex CLI to auto-approve everything — safe inside the sandbox.
 RUN mkdir -p /root/.codex && \

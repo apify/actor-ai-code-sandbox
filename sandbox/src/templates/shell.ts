@@ -100,9 +100,11 @@ alias la='ls -A'
 alias l='ls -CF'
 
 # Auto-approve all confirmations for AI coding agents — safe inside the sandbox.
-# Claude Code's settings-based bypass mode shows a blocking confirmation dialog,
-# so we pass --dangerously-skip-permissions explicitly. Defined as a function so
-# it also applies on the non-interactive launch path (bash -c). Codex and
+# --dangerously-skip-permissions puts Claude Code into bypass-permissions mode so
+# it never stops for approval. Its first-run "Bypass Permissions mode" dialog is
+# pre-accepted at build time (see skipDangerousModePermissionPrompt in the
+# Dockerfile), so the flag starts straight into a session. Defined as a function
+# so it also applies on the non-interactive launch path (bash -c). Codex and
 # OpenCode auto-approve via their own config files.
 claude() { command claude --dangerously-skip-permissions "$@"; }
 
