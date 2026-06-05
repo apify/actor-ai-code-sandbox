@@ -96,8 +96,8 @@ export ANTHROPIC_BASE_URL="https://openrouter.apify.actor/api"
 export ANTHROPIC_AUTH_TOKEN="\${APIFY_TOKEN}"
 export ANTHROPIC_API_KEY=""
 
-# Colorful prompt
-PS1='\\[\\033[01;32m\\]apify\\[\\033[00m\\]@\\[\\033[01;34m\\]sandbox\\[\\033[00m\\]:\\[\\033[01;33m\\]\\w\\[\\033[00m\\]\\$ '
+# Colorful prompt (working directory only, no user/host)
+PS1='\\[\\033[01;33m\\]\\w\\[\\033[00m\\]\\$ '
 
 # Aliases
 alias ll='ls -alF'
