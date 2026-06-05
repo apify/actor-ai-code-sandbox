@@ -158,17 +158,33 @@ RUN npm install --production && npm cache clean --force
 # Add local bin to PATH for CLI tools (Claude at ~/.local/bin, OpenCode at ~/.opencode/bin)
 ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH"
 
-# Set IS_SANDBOX environment variable globally
+# Mark the container as a trusted sandbox.
+# Claude Code refuses to run in bypassPermissions / --dangerously-skip-permissions
+# mode as root unless IS_SANDBOX is exactly "1", so this is what lets the
+# pre-configured bypass mode below actually take effect for the root user.
 ENV IS_SANDBOX=1
 
-# Set Claude Code max output tokens to 64000
+# Tell Claude Code it is running inside a trusted sandbox so it auto-trusts every
+# working directory and never shows the interactive "Do you trust this folder?"
+# safety prompt on startup. This flag only affects the folder-trust check.
+ENV CLAUDE_CODE_SANDBOXED=1
+
+# Set Claude Code max output tokens
 ENV CLAUDE_CODE_MAX_OUTPUT_TOKENS=128000
 
-# Pre-accept Claude Code's first-run onboarding so the CLI starts immediately.
-# Permission prompts are bypassed via --dangerously-skip-permissions in the shell
-# wrapper (see SANDBOX_BASHRC); settings.json bypass mode triggers a blocking
-# confirmation dialog, so we deliberately don't set it here.
+# Skip Claude Code's first-run onboarding wizard (theme/login picker) so the CLI
+# starts straight into a session.
 RUN echo '{"hasCompletedOnboarding": true}' > /root/.claude.json
+
+# Pre-configure Claude Code with sandbox-friendly defaults so the user never has
+# to answer interactive prompts on launch:
+#   - permissions.defaultMode=bypassPermissions  -> run tools without asking
+#   - skipDangerousModePermissionPrompt=true      -> skip the one-time "Bypass
+#     Permissions mode" disclaimer. This is required: without it Claude silently
+#     downgrades bypassPermissions in non-interactive sessions, so tools would
+#     still prompt for approval.
+RUN mkdir -p /root/.claude && \
+    echo '{"permissions":{"defaultMode":"bypassPermissions"},"skipDangerousModePermissionPrompt":true}' > /root/.claude/settings.json
 
 # Configure Codex CLI to auto-approve everything — safe inside the sandbox.
 RUN mkdir -p /root/.codex && \

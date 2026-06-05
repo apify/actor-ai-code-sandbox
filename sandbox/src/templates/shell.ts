@@ -91,20 +91,18 @@ export ANTHROPIC_BASE_URL="https://openrouter.apify.actor/api"
 export ANTHROPIC_AUTH_TOKEN="\${APIFY_TOKEN}"
 export ANTHROPIC_API_KEY=""
 
-# Colorful prompt
-PS1='\\[\\033[01;32m\\]actor\\[\\033[00m\\]@\\[\\033[01;34m\\]sandbox\\[\\033[00m\\]:\\[\\033[01;33m\\]\\w\\[\\033[00m\\]\\$ '
+# Colorful prompt (working directory only, no user/host)
+PS1='\\[\\033[01;33m\\]\\w\\[\\033[00m\\]\\$ '
 
 # Aliases
 alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
-# Auto-approve all confirmations for AI coding agents — safe inside the sandbox.
-# Claude Code's settings-based bypass mode shows a blocking confirmation dialog,
-# so we pass --dangerously-skip-permissions explicitly. Defined as a function so
-# it also applies on the non-interactive launch path (bash -c). Codex and
-# OpenCode auto-approve via their own config files.
-claude() { command claude --dangerously-skip-permissions "$@"; }
+# AI coding agents auto-approve all confirmations — safe inside the sandbox.
+# Claude Code: bypass mode + prompt suppression are baked into the image via
+# settings.json (see the Dockerfile), so a plain \`claude\` starts cleanly on every
+# launch path. Codex and OpenCode auto-approve via their own config files.
 
 # Print welcome message (once per session; the launch wrapper sources this
 # rcfile twice — to set up the env, then again for the persistent shell).
