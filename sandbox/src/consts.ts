@@ -33,6 +33,13 @@ export const PYTHON_VENV_DIR = '/sandbox/py/venv';
 export const PYTHON_BIN_DIR = '/sandbox/py/venv/bin';
 
 /**
+ * Default idle timeout in seconds (15 minutes). The container shuts down
+ * automatically after this much inactivity unless overridden via the
+ * `idleTimeoutSecs` input. Set to 0 to disable.
+ */
+export const DEFAULT_IDLE_TIMEOUT_SECS = 900;
+
+/**
  * Init script execution timeout (5 minutes)
  */
 export const INIT_SCRIPT_TIMEOUT_MS = 300000;
