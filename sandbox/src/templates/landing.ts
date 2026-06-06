@@ -9,6 +9,20 @@ import { parse as parseHtml } from 'node-html-parser';
 interface LandingPageOptions {
     serverUrl: string;
     isLocalMode: boolean;
+    idleTimeoutSecs: number;
+}
+
+/** Human-readable duration for the idle-timeout sentence, e.g. "15 minutes". */
+function humanizeDuration(secs: number): string {
+    if (secs % 3600 === 0) {
+        const hours = secs / 3600;
+        return `${hours} hour${hours === 1 ? '' : 's'}`;
+    }
+    if (secs >= 60) {
+        const mins = Math.round(secs / 60);
+        return `${mins} minute${mins === 1 ? '' : 's'}`;
+    }
+    return `${secs} second${secs === 1 ? '' : 's'}`;
 }
 
 const templatePath = join(dirname(fileURLToPath(import.meta.url)), 'landing.ejs');
@@ -17,7 +31,7 @@ const landingTemplate = readFileSync(templatePath, 'utf8');
 const stylesPath = join(dirname(fileURLToPath(import.meta.url)), 'landing.css');
 const landingStyles = readFileSync(stylesPath, 'utf8');
 
-const STRIP_SELECTOR = 'script, style, [data-no-md], .copy-btn, .collapse-btn, .status-badge';
+const STRIP_SELECTOR = 'script, style, [data-no-md], .copy-btn, .status-badge';
 
 const nhm = new NodeHtmlMarkdown(
     {
@@ -39,19 +53,27 @@ const nhm = new NodeHtmlMarkdown(
     },
 );
 
-export function getLandingPageHTML({ serverUrl, isLocalMode }: LandingPageOptions): string {
+export function getLandingPageHTML({ serverUrl, isLocalMode, idleTimeoutSecs }: LandingPageOptions): string {
     const modeLabel = isLocalMode ? 'Local mode (deps skipped)' : 'Production mode';
 
     return ejs.render(landingTemplate, {
         serverUrl,
         modeLabel,
         isLocalMode,
+        idleTimeoutSecs,
+        idleTimeoutLabel: humanizeDuration(idleTimeoutSecs),
         styles: landingStyles,
     });
 }
 
-export function getLLMsMarkdown({ serverUrl }: { serverUrl: string }): string {
-    const html = getLandingPageHTML({ serverUrl, isLocalMode: false });
+export function getLLMsMarkdown({
+    serverUrl,
+    idleTimeoutSecs,
+}: {
+    serverUrl: string;
+    idleTimeoutSecs: number;
+}): string {
+    const html = getLandingPageHTML({ serverUrl, isLocalMode: false, idleTimeoutSecs });
     const root = parseHtml(html);
     root.querySelectorAll(STRIP_SELECTOR).forEach((el) => el.remove());
     return `${nhm.translate(root.toString()).trim()}\n`;

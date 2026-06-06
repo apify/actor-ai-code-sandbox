@@ -9,7 +9,7 @@ import type { Request, Response } from 'express';
 import express from 'express';
 import httpProxy from 'http-proxy';
 
-import { SANDBOX_DIR } from './consts.js';
+import { DEFAULT_IDLE_TIMEOUT_SECS, SANDBOX_DIR } from './consts.js';
 import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
@@ -55,6 +55,9 @@ import type { ActorInput, ProxyMapping } from './types.js';
 let initializationComplete = false;
 let initializationError: string | null = null;
 let lastActivityAt = Date.now();
+// Seconds of inactivity before auto-shutdown (0 = disabled). Set from input at
+// startup; kept module-level so the landing page and /health can report it.
+let idleTimeoutSecs = DEFAULT_IDLE_TIMEOUT_SECS;
 
 // Check if running in local mode
 const isLocalMode = process.env.MODE === 'local';
@@ -649,6 +652,7 @@ app.get('/', (_req: Request, res: Response) => {
         getLandingPageHTML({
             serverUrl,
             isLocalMode,
+            idleTimeoutSecs,
         }),
     );
 });
@@ -666,7 +670,7 @@ app.get('/browse/*path', handleBrowse);
 // LLMs.txt endpoint (Markdown documentation for LLMs)
 app.get('/llms.txt', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(getLLMsMarkdown({ serverUrl }));
+    res.send(getLLMsMarkdown({ serverUrl, idleTimeoutSecs }));
 });
 
 // ============================================================================
@@ -774,7 +778,12 @@ app.get('/health', (_req: Request, res: Response) => {
         return;
     }
 
-    res.json({ status: 'healthy' });
+    const body: Record<string, unknown> = { status: 'healthy', idleTimeoutSecs };
+    if (idleTimeoutSecs > 0) {
+        const elapsedSecs = Math.floor((Date.now() - lastActivityAt) / 1000);
+        body.remainingSecs = Math.max(0, idleTimeoutSecs - elapsedSecs);
+    }
+    res.json(body);
 });
 
 // MCP endpoint using proper StreamableHTTPServerTransport
@@ -1443,7 +1452,7 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     // Start idle timeout check
-    const idleTimeoutSecs = input?.idleTimeoutSecs ?? 900;
+    idleTimeoutSecs = input?.idleTimeoutSecs ?? DEFAULT_IDLE_TIMEOUT_SECS;
     if (idleTimeoutSecs > 0) {
         log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
         setInterval(async () => {

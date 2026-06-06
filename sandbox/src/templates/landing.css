@@ -320,38 +320,6 @@ code {
     font-style: italic;
 }
 
-/* Collapsible sections */
-.collapsible-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    cursor: pointer;
-    user-select: none;
-    gap: 12px;
-}
-.collapse-btn {
-    background: var(--chip);
-    color: var(--text-muted);
-    border: 1px solid var(--border);
-    padding: 5px 11px;
-    border-radius: 6px;
-    font-size: 11.5px;
-    font-weight: 600;
-    cursor: pointer;
-}
-.collapse-btn:hover {
-    color: var(--text-strong);
-}
-.collapsible-content {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-    margin-top: 2px;
-}
-.collapsible-content.collapsed {
-    display: none;
-}
-
 /* Status badge */
 .status-badge {
     display: inline-flex;
@@ -372,6 +340,10 @@ code {
     border-radius: 50%;
     background: var(--text-faint);
     animation: pulse 2s infinite;
+}
+.status-icon {
+    font-size: 12px;
+    line-height: 1;
 }
 .status-badge.healthy .status-dot {
     background: var(--ok);
