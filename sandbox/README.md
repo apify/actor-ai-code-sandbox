@@ -399,6 +399,7 @@ Provide a bash script via the "Initialization Script" input to customize the san
 - Runs **after** library installation
 - Executes in `/sandbox` directory
 - Can install system packages, create directories, set permissions, etc.
+- Output is streamed live to the Actor log (tagged `[init]`), with a progress heartbeat for long steps, so you can follow along and debug failures
 - Errors are logged but don't prevent Actor from starting
 - **Note:** Init scripts have a 5-minute execution timeout
 

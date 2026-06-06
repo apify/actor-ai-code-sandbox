@@ -147,11 +147,8 @@ if (input?.initShellScript && input.initShellScript.trim().length > 0) {
     log.info('Executing init script...');
     const initResult = await executeInitScript(input.initShellScript);
     if (initResult.exitCode !== 0) {
-        log.error('Init script failed', {
-            exitCode: initResult.exitCode,
-            stderr: initResult.stderr,
-            stdout: initResult.stdout,
-        });
+        // The output and failure summary were already streamed by executeInitScript;
+        // record the reason so the /health endpoint can report it.
         initializationError = `Init script failed with exit code ${initResult.exitCode}`;
     }
 } else {
