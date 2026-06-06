@@ -47,7 +47,7 @@
                 "editor": "resourcePicker",
                 "default": []
             },
-            "initShellScript": {
+            "initBashScript": {
                 "title": "Setup script",
                 "type": "string",
                 "description": "Bash script execute run on startup, after Node and Python dependencies are installed. Use it to install system packages, create directories, or set up the environment.",

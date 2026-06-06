@@ -23,7 +23,7 @@
         "default": "apify/agent-skills",
         "prefill": "apify/agent-skills\n# One skill per line, e.g. anthropics/skills"
       },
-      "initShellScript": {
+      "initBashScript": {
         "title": "Initialization script",
         "type": "string",
         "description": "Optional bash script to run on startup for installing packages or setting up the environment.",
