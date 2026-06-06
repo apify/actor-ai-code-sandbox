@@ -8,11 +8,11 @@
     "usesStandbyMode": false,
     "meta": {
         "templateId": "ts-standby",
-        "generatedBy": "claude-haiku-4.5"
+        "generatedBy": "claude-opus-4.8"
     },
     "input": {
         "title": "Sandbox input settings",
-        "description": "Sandbox for secure execution of AI-generated code. Once started, it provides a web server with MCP, REST API, and interactive shell with pre-configured Claude Code, Codex CLI, and OpenCode coding agents.",
+        "description": "Sandbox for secure execution of AI-generated code accessible via MCP, REST API, and interactive shell.\n\nThe sandbox provides pre-configured Claude Code, Codex CLI, and OpenCode AI coding agents. Beware that you will be charged for tokens they use through OpenRouter API pricing.",
         "type": "object",
         "schemaVersion": 1,
         "properties": {
