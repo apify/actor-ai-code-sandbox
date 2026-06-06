@@ -15,10 +15,10 @@
                 <p class="lead">Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.</p>
             </div>
             <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                <div class="status-badge loading" id="statusBadge">
+                <a class="status-badge loading" id="statusBadge" href="/health" target="_blank" rel="noopener noreferrer">
                     <span class="status-dot"></span>
                     <span id="statusText">Checking...</span>
-                </div>
+                </a>
                 <% if (isLocalMode) { %>
                     <div class="badge"><%= modeLabel %></div>
                 <% } %>
@@ -41,7 +41,6 @@
                 <li><strong>Landing page</strong>: <a href="<%= serverUrl %>/"><%= serverUrl %>/</a></li>
                 <li><strong>Shell terminal</strong>: <a href="<%= serverUrl %>/shell/"><%= serverUrl %>/shell/</a></li>
                 <li><strong>File browser</strong>: <a href="<%= serverUrl %>/browse"><%= serverUrl %>/browse</a></li>
-                <li><strong>Health check</strong>: <a href="<%= serverUrl %>/health"><%= serverUrl %>/health</a></li>
                 <li><strong>MCP endpoint</strong>: <a href="<%= serverUrl %>/mcp"><%= serverUrl %>/mcp</a></li>
             </ul>
         </section>
