@@ -59,12 +59,13 @@ FROM node:24-trixie-slim
 #     it ttyd dies at runtime with "lws_create_context: failed to load evlib_uv"
 #     and the interactive shell never starts. Keep it when trimming this list.
 # We pass --no-install-recommends to drop the recommended-but-unused packages
-# that otherwise bloated this layer. build-essential, python3-dev, and
-# openssh-client are recommends we DO want, so they are listed explicitly:
-# build-essential + python3-dev let sandboxed code compile native pip / node-gyp
-# modules at runtime, and openssh-client enables git-over-SSH. Do not drop these
-# assuming they are redundant — without --no-install-recommends they came in for
-# free, but the flag now means they must be requested by name.
+# that otherwise bloated this layer. build-essential and openssh-client are
+# recommends we DO want, so they are listed explicitly: build-essential lets
+# sandboxed code compile native node-gyp / C modules at runtime, and
+# openssh-client enables git-over-SSH. We intentionally omit python3-dev, so
+# pip relies on prebuilt wheels and cannot build Python C extensions from
+# source — add python3-dev (plus any package-specific -dev libs) if that ever
+# becomes a requirement.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
@@ -74,7 +75,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     python3-venv \
     python3-pip \
-    python3-dev \
     build-essential \
     ca-certificates \
     libjson-c5 \
