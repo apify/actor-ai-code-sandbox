@@ -3,32 +3,45 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { buildMcpConfig } from '../../src/mcp-connections.js';
+import { APIFY_MCP_URL, buildMcpConfig } from '../../src/mcp-connections.js';
 
 const PROXY = 'https://api.apify.com/v2/mcp-proxy';
 
+/** The Apify MCP server is always seeded into the config under the `apify` key. */
+const APIFY_ENTRY = { url: APIFY_MCP_URL, headers: { Authorization: 'Bearer ${APIFY_TOKEN}' } };
+
 describe('buildMcpConfig', () => {
-    describe('empty / nullish input', () => {
-        it('returns an empty mcpServers map for undefined', () => {
-            assert.deepEqual(buildMcpConfig(undefined, PROXY), { mcpServers: {} });
+    describe('always-on Apify MCP server', () => {
+        it('seeds the Apify MCP server even with no connectors', () => {
+            assert.deepEqual(buildMcpConfig(undefined, PROXY), { mcpServers: { apify: APIFY_ENTRY } });
+            assert.deepEqual(buildMcpConfig([], PROXY), { mcpServers: { apify: APIFY_ENTRY } });
         });
 
-        it('returns an empty mcpServers map for an empty array', () => {
-            assert.deepEqual(buildMcpConfig([], PROXY), { mcpServers: {} });
+        it('points the Apify entry at https://mcp.apify.com with the APIFY_TOKEN bearer', () => {
+            const { apify } = buildMcpConfig(['conn_abc'], PROXY).mcpServers;
+            assert.equal(apify.url, 'https://mcp.apify.com');
+            assert.equal(apify.headers.Authorization, 'Bearer ${APIFY_TOKEN}');
+        });
+    });
+
+    describe('empty / nullish input', () => {
+        it('returns only the Apify server for an empty array', () => {
+            assert.deepEqual(Object.keys(buildMcpConfig([], PROXY).mcpServers), ['apify']);
         });
 
         it('skips blank / non-string entries', () => {
             // @ts-expect-error - intentionally passing non-string to exercise runtime guard
             const config = buildMcpConfig(['', '   ', null, 42, 'conn_ok'], PROXY);
-            assert.deepEqual(Object.keys(config.mcpServers), ['conn_ok']);
+            assert.deepEqual(Object.keys(config.mcpServers), ['apify', 'conn_ok']);
         });
     });
 
     describe('valid Connector IDs', () => {
-        it('builds one server entry per Connector ID', () => {
+        it('builds one server entry per Connector ID (alongside the Apify server)', () => {
             const config = buildMcpConfig(['conn_abc123', 'conn_def456'], PROXY);
             assert.deepEqual(config, {
                 mcpServers: {
+                    apify: APIFY_ENTRY,
                     conn_abc123: {
                         url: `${PROXY}/conn_abc123`,
                         headers: { Authorization: 'Bearer ${APIFY_TOKEN}' },
@@ -53,7 +66,7 @@ describe('buildMcpConfig', () => {
 
         it('trims whitespace around Connector IDs', () => {
             const config = buildMcpConfig(['  conn_abc  '], PROXY);
-            assert.deepEqual(Object.keys(config.mcpServers), ['conn_abc']);
+            assert.deepEqual(Object.keys(config.mcpServers), ['apify', 'conn_abc']);
             assert.equal(config.mcpServers.conn_abc.url, `${PROXY}/conn_abc`);
         });
     });

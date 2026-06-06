@@ -148,11 +148,17 @@ Access Apify platform features and thousands of Actors via `mcpc` tool.
 
 If the user picked **MCP Connectors** in the Actor input (e.g. Slack, Notion, GitHub), the sandbox writes them to `/sandbox/mcp.json` on startup. Each entry is a ready-to-use HTTP MCP proxy, authenticated with the user's credentials server-side:
 
+> **If you are Claude Code, Codex, or OpenCode**, these connectors are already registered as native MCP tools on startup — just call them directly, no `mcpc connect` needed. The steps below are for the `mcpc` CLI or any other client.
+
 ```bash
 cat /sandbox/mcp.json
 # {
 #   "mcpServers": {
-#     "conn_abc123": {
+#     "apify": {                                       # always present (hosted Apify MCP)
+#       "url": "https://mcp.apify.com",
+#       "headers": { "Authorization": "Bearer ${APIFY_TOKEN}" }
+#     },
+#     "conn_abc123": {                                 # one per user-picked Connector
 #       "url": "https://api.apify.com/v2/mcp-proxy/conn_abc123",
 #       "headers": { "Authorization": "Bearer ${APIFY_TOKEN}" }
 #     }
@@ -160,16 +166,16 @@ cat /sandbox/mcp.json
 # }
 ```
 
+`/sandbox/mcp.json` always contains the hosted Apify MCP server under the `apify` key, plus one entry per user-picked Connector.
+
 To connect with `mcpc`, read a server entry from the file and pass it to `mcpc connect`:
 
 ```bash
-# Connect to the first user-provided Connector as @user1
-URL=$(jq -r '.mcpServers | to_entries[0].value.url' /sandbox/mcp.json)
+# Connect to the first user-provided Connector (skipping the always-on "apify" entry) as @user1
+URL=$(jq -r '.mcpServers | to_entries | map(select(.key != "apify"))[0].value.url // empty' /sandbox/mcp.json)
 mcpc connect "$URL" @user1 --header "Authorization: Bearer $APIFY_TOKEN"
 mcpc @user1 tools-list --json
 ```
-
-If `/sandbox/mcp.json` has `"mcpServers": {}`, the user provided no Connectors — fall back to the Apify MCP server below.
 
 ### 🚨 CRITICAL: Connect to Apify MCP Server First
 
