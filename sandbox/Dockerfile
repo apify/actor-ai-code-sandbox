@@ -58,14 +58,24 @@ FROM node:24-trixie-slim
 #     so `ldd ttyd` and `ttyd --version` won't reveal it's missing — but without
 #     it ttyd dies at runtime with "lws_create_context: failed to load evlib_uv"
 #     and the interactive shell never starts. Keep it when trimming this list.
-RUN apt-get update && apt-get install -y \
+# We pass --no-install-recommends to drop the recommended-but-unused packages
+# that otherwise bloated this layer. build-essential, python3-dev, and
+# openssh-client are recommends we DO want, so they are listed explicitly:
+# build-essential + python3-dev let sandboxed code compile native pip / node-gyp
+# modules at runtime, and openssh-client enables git-over-SSH. Do not drop these
+# assuming they are redundant — without --no-install-recommends they came in for
+# free, but the flag now means they must be requested by name.
+RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
     wget \
     git \
+    openssh-client \
     python3 \
     python3-venv \
     python3-pip \
+    python3-dev \
+    build-essential \
     ca-certificates \
     libjson-c5 \
     libwebsockets19t64 \
@@ -89,12 +99,21 @@ RUN npm install -g tsx \
 
 # Install AI coding agent CLIs via npm. All three ship platform-specific
 # native binaries through optional deps; --include=optional ensures the
-# Linux binary is fetched. Claude Code uses Node as a launcher; Codex and
-# OpenCode bundle their own runtimes (Rust / Bun) inside the binary.
+# Linux binary is fetched. Codex and OpenCode bundle their own runtimes
+# (Rust / Bun) inside the binary; Claude Code ships a Bun-compiled binary
+# that does not invoke Node at runtime.
+#
+# OpenCode publishes two interchangeable x64 builds: an AVX2 build
+# (opencode-linux-x64) and a non-AVX2 "baseline" build. Neither carries a
+# cpu/libc field npm can filter on, so npm installs BOTH (~149 MB each) and
+# OpenCode selects one at runtime via an AVX2 probe. Every x86-64 server CPU
+# since ~2013 has AVX2, so we delete the baseline build to reclaim ~149 MB.
+# This must happen in the same layer as the install to actually shrink the image.
 RUN npm install -g --include=optional \
         @anthropic-ai/claude-code \
         @openai/codex \
         opencode-ai \
+    && rm -rf "$(npm root -g)/opencode-linux-x64-baseline" \
     && npm cache clean --force
 
 # Create sandbox directory for operations
