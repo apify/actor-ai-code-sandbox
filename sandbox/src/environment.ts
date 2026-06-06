@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { log } from 'apify';
 
 import {
-    INIT_SCRIPT_HEARTBEAT_INTERVAL,
+    INIT_SCRIPT_HEARTBEAT_INTERVAL_MS,
     INIT_SCRIPT_TIMEOUT,
     JS_TS_CODE_DIR,
     PYTHON_CODE_DIR,
@@ -499,7 +499,7 @@ const runScriptStreaming = async (
             log.info('Init script still running...', {
                 elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
             });
-        }, INIT_SCRIPT_HEARTBEAT_INTERVAL);
+        }, INIT_SCRIPT_HEARTBEAT_INTERVAL_MS);
 
         // spawn() has no built-in rejection on timeout (unlike the old exec
         // call), so enforce it here and kill the process if it overruns.
