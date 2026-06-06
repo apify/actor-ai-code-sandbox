@@ -186,9 +186,26 @@ RUN echo '{"hasCompletedOnboarding": true}' > /root/.claude.json
 RUN mkdir -p /root/.claude && \
     echo '{"permissions":{"defaultMode":"bypassPermissions"},"skipDangerousModePermissionPrompt":true}' > /root/.claude/settings.json
 
-# Configure Codex CLI to auto-approve everything — safe inside the sandbox.
+# Configure Codex CLI to use the Apify OpenRouter proxy — the same proxy that backs
+# Claude Code and OpenCode — and to auto-approve everything (safe inside the sandbox).
+# Codex reads the bearer token from APIFY_TOKEN at runtime, and custom providers
+# default to requires_openai_auth=false, so Codex starts straight into a session with
+# no "Sign in with ChatGPT" prompt. Bare keys must precede the [table] headers so the
+# MCP-connector block appended at runtime (see src/mcp-agent-config.ts) stays valid TOML.
 RUN mkdir -p /root/.codex && \
-    printf 'approval_policy = "never"\nsandbox_mode = "danger-full-access"\n' > /root/.codex/config.toml
+    printf '%s\n' \
+        'model = "anthropic/claude-sonnet-4.5"' \
+        'model_provider = "apify-openrouter"' \
+        'approval_policy = "never"' \
+        'sandbox_mode = "danger-full-access"' \
+        '' \
+        '[model_providers.apify-openrouter]' \
+        'name = "Apify OpenRouter Proxy"' \
+        'base_url = "https://openrouter.apify.actor/api/v1"' \
+        'env_key = "APIFY_TOKEN"' \
+        'requires_openai_auth = false' \
+        'wire_api = "chat"' \
+        > /root/.codex/config.toml
 
 # Capture tool versions at build time for fast shell startup
 COPY scripts/capture-versions.sh /tmp/capture-versions.sh
