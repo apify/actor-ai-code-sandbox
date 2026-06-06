@@ -41,7 +41,7 @@
             "mcpConnectors": {
                 "title": "MCP connectors",
                 "type": "array",
-                "description": "MCP Connectors the sandbox can call on your behalf (Slack, Notion, GitHub, or any MCP server authorized in Settings > API & Integrations > MCP Connectors). At runtime the platform injects your credentials, exposes each as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`, and writes the list to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
+                "description": "One or more MCP connectors that will be available to the sandbox. They are pre-configured in Claude Code, Codex, and OpenCode, as well as written to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
                 "resourceType": "mcpConnector",
                 "mcpServers": [{ "url": "*" }],
                 "editor": "resourcePicker",
