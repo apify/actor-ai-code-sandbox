@@ -91,7 +91,7 @@ log.info('Actor input retrieved', {
     hasSkills: skills.length > 0,
     hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
     hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
-    hasInitScript: !!input?.initShellScript?.trim().length,
+    hasInitScript: !!input?.initBashScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
     mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
 });
@@ -150,9 +150,9 @@ if (!setupResult.success) {
 }
 
 // Execute init script if provided and not empty
-if (input?.initShellScript && input.initShellScript.trim().length > 0) {
+if (input?.initBashScript && input.initBashScript.trim().length > 0) {
     log.info('Executing init script...');
-    const initResult = await executeInitScript(input.initShellScript);
+    const initResult = await executeInitScript(input.initBashScript);
     if (initResult.exitCode !== 0) {
         // The output and failure summary were already streamed by executeInitScript;
         // record the reason so the /health endpoint can report it.

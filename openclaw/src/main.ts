@@ -95,7 +95,7 @@ sleep 3
 echo "OpenClaw started: http://127.0.0.1:18789/openclaw/"`;
 
 // Combine OpenClaw init script with any user-provided init script
-const userInitScript = (input as Record<string, unknown>)?.initShellScript as string | undefined;
+const userInitScript = (input as Record<string, unknown>)?.initBashScript as string | undefined;
 const combinedInitScript = userInitScript
   ? `${openclawInitScript}\n\n# User-provided init script\n${userInitScript}`
   : openclawInitScript;
@@ -103,7 +103,7 @@ const combinedInitScript = userInitScript
 // Build the merged input, injecting the OpenClaw init script
 const mergedInput = {
   ...((input as Record<string, unknown>) || {}),
-  initShellScript: combinedInitScript,
+  initBashScript: combinedInitScript,
 };
 
 console.log(`🔄 Metamorphing into: ${sandboxActorName}`);

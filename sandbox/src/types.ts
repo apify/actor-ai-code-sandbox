@@ -39,7 +39,7 @@ export interface ActorInput {
      * Optional bash script to customize the sandbox environment
      * Runs after dependency installation in /sandbox directory
      */
-    initShellScript?: string;
+    initBashScript?: string;
 
     /**
      * Secret environment variables exposed to the sandbox shell, init script,

@@ -38,7 +38,7 @@
                 "editor": "textarea",
                 "prefill": "# One package per line (requirements.txt format):\n# requests==2.31.0\n# pandas"
             },
-            "initShellScript": {
+            "initBashScript": {
                 "title": "Initialization script",
                 "type": "string",
                 "description": "Optional bash script run on startup, after dependencies are installed. Use it to install system packages, create directories, or set up the environment.",

@@ -936,7 +936,7 @@ async function main(): Promise<void> {
             nodeDependencies: 'zod@^3.22.0',
             pythonRequirements: 'numpy>=1.24.0',
             envVars: 'TEST_E2E_SECRET=hunter2-do-not-leak',
-            initShellScript: [
+            initBashScript: [
                 '#!/bin/bash',
                 'mkdir -p /sandbox/test-e2e-init',
                 "echo 'E2E test init script executed' > /sandbox/test-e2e-init/status.txt",
