@@ -35,7 +35,13 @@ export const PYTHON_BIN_DIR = '/sandbox/py/venv/bin';
 /**
  * Init script execution timeout (5 minutes)
  */
-export const INIT_SCRIPT_TIMEOUT = 300000;
+export const INIT_SCRIPT_TIMEOUT_MS = 300000;
+
+/**
+ * How often to log a heartbeat while the init script is running (30 seconds),
+ * so long, quiet steps (e.g. `npm install`) don't look like a hang.
+ */
+export const INIT_SCRIPT_HEARTBEAT_INTERVAL_MS = 30000;
 
 /**
  * Migration persistence constants
