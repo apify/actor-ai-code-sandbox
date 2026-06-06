@@ -13,6 +13,7 @@ import { SANDBOX_DIR } from './consts.js';
 import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
+import { configureAgentMcpServers } from './mcp-agent-config.js';
 import { writeMcpConfig } from './mcp-connections.js';
 import { translateLaunchParam } from './shell-launch.js';
 import { parseNodeDependencies } from './node-deps.js';
@@ -93,9 +94,12 @@ log.info('Actor input retrieved', {
 });
 
 // Write /sandbox/mcp.json with the configured MCP Connector proxies so
-// tools like `mcpc connect` find them as soon as the shell opens.
+// tools like `mcpc connect` find them as soon as the shell opens, then load the
+// same servers into Claude Code, Codex, and OpenCode so they appear as tools the
+// moment an agent launches (no `claude mcp add` / `mcpc connect` step needed).
 if (!isLocalMode) {
-    writeMcpConfig(input?.mcpConnectors);
+    const mcpConfig = writeMcpConfig(input?.mcpConnectors);
+    configureAgentMcpServers(mcpConfig);
 }
 
 // Check for migration state and restore if available
