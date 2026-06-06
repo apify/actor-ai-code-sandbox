@@ -2,7 +2,7 @@
     "actorSpecification": 1,
     "name": "apify-ai-sandbox",
     "title": "Apify AI Code Sandbox",
-    "description": "Apify AI Code Sandbox Actor that allows execution of code and operations in a containerized environment for AI coding agents",
+    "description": "Actor that allows execution of code and operations in a secure containerized environment for AI coding agents",
     "version": "0.0",
     "buildTag": "latest",
     "usesStandbyMode": false,
@@ -11,13 +11,13 @@
         "generatedBy": "claude-haiku-4.5"
     },
     "input": {
-        "title": "Actor input schema",
-        "description": "AI Sandbox for running AI coding operations in a containerized environment. 🚀\n\n## How to use\n* **Connect with MCP client:** Use a Model Context Protocol (MCP) client to interact with this sandbox. See https://modelcontextprotocol.io/clients\n* **Use Apify SDK:** Connect programmatically using the Apify SDK for direct integration\n* **REST API:** Access the sandbox directly via REST API endpoints\n\n## Configuration\n* **Memory & timeout:** Configure run options below to set memory allocation and execution timeout\n* **Check logs:** Open the Actor run log console to view connection details and operation output",
+        "title": "Sandbox input settings",
+        "description": "Sandbox for secure execution of AI-generated code. Once started, it provides a web server with MCP, REST API, and interactive shell with pre-configured Claude Code, Codex CLI, and OpenCode coding agents.",
         "type": "object",
         "schemaVersion": 1,
         "properties": {
             "agentSkills": {
-                "title": "Skills",
+                "title": "Agent skills",
                 "type": "string",
                 "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line — a GitHub `owner/repo` (e.g. `anthropics/skills`) or repo URL (e.g. `https://github.com/anthropics/skills`); blank lines and `#` comments are ignored. Also accepts a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",
                 "editor": "textarea",
@@ -27,38 +27,48 @@
             "nodeDependencies": {
                 "title": "Node.js dependencies",
                 "type": "string",
-                "description": "npm packages for JavaScript/TypeScript code execution (/sandbox/js-ts). One `package@version` per line — same syntax `npm install <pkg>` accepts (omit `@version` for `latest`; blank lines and `#` comments are ignored). Also accepts a JSON object like `{\"zod\": \"^3.0\", \"axios\": \"latest\"}`.",
+                "description": "npm packages for JavaScript/TypeScript code execution (/sandbox/js-ts). One `package@version` per line — same syntax `npm install <pkg>` accepts (omit `@version` for `latest`; blank lines and `#` comments are ignored). Also accepts a package.json-style JSON object like `{\"zod\": \"^3.0\", \"axios\": \"latest\"}`.",
                 "editor": "textarea",
                 "prefill": "# One package@version per line (omit @version for latest):\n# zod@^3.0\n# axios"
             },
             "pythonRequirements": {
                 "title": "Python requirements",
                 "type": "string",
-                "description": "Python packages for Python code execution (/sandbox/py), in requirements.txt format — one package per line.",
+                "description": "Python packages for Python code execution (/sandbox/py), in requirements.txt format — one package per line, blank lines and `#` comments are ignored.",
                 "editor": "textarea",
-                "prefill": "# One package per line (requirements.txt format):\n# requests==2.31.0\n# pandas"
+                "prefill": "# One package per line:\n# requests==2.31.0\n# pandas"
+            },
+            "mcpConnectors": {
+                "title": "MCP connectors",
+                "type": "array",
+                "description": "MCP Connectors the sandbox can call on your behalf (Slack, Notion, GitHub, or any MCP server authorized in Settings > API & Integrations > MCP Connectors). At runtime the platform injects your credentials, exposes each as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`, and writes the list to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
+                "resourceType": "mcpConnector",
+                "mcpServers": [{ "url": "*" }],
+                "editor": "resourcePicker",
+                "default": []
             },
             "initShellScript": {
-                "title": "Initialization script",
+                "title": "Setup script",
                 "type": "string",
-                "description": "Optional bash script run on startup, after dependencies are installed. Use it to install system packages, create directories, or set up the environment.",
+                "description": "Bash script execute run on startup, after Node and Python dependencies are installed. Use it to install system packages, create directories, or set up the environment.",
                 "editor": "textarea",
                 "prefill": "#!/bin/bash\n# Runs on startup. Uncomment or add your own:\n# apt-get update && apt-get install -y jq\n# mkdir -p /sandbox/data"
             },
             "envVars": {
                 "title": "Environment variables",
                 "type": "string",
-                "description": "Secret env vars exposed **only to the init bash script**, then deleted before the shell, MCP server, and code execution start. Encrypted at rest by Apify.\n\nAccepts `KEY=VALUE` per line or a JSON object, e.g. `{\"GITHUB_TOKEN\": \"ghp_...\"}`.",
+                "description": "Secret environment variables that are exposed **only to the setup script**, then deleted before the shell, MCP server, and code execution start. Encrypted at rest by Apify.\n\nAccepts dotenv format (`KEY=VALUE` per line with # comments), or a JSON object, e.g. `{\"KEY\": \"VALUE\"}`.",
                 "editor": "textarea",
                 "isSecret": true
             },
             "idleTimeoutSecs": {
                 "title": "Idle timeout",
                 "type": "integer",
-                "description": "The container shuts down automatically after this many seconds of inactivity (no requests or shell interaction). Set to 0 to disable. Recommended: set the Actor timeout to 0 (infinite) when using this.",
+                "description": "The container shuts down automatically after this many seconds of inactivity (no requests or shell interaction). Set to 0 to disable. Recommended: set the standard Actor timeout to 0 (infinite) when using this setting.",
                 "default": 900,
                 "editor": "number",
-                "unit": "Seconds",
+                "unit": "seconds",
+                "minimum": 0,
                 "prefill": 900
             },
             "proxyMappings": {
@@ -84,15 +94,6 @@
                 },
                 "default": [],
                 "prefill": [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
-            },
-            "mcpConnectors": {
-                "title": "MCP Connectors",
-                "type": "array",
-                "description": "MCP Connectors the sandbox can call on your behalf (Slack, Notion, GitHub, or any MCP server authorized in Settings > API & Integrations > MCP Connectors). At runtime the platform injects your credentials, exposes each as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`, and writes the list to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
-                "resourceType": "mcpConnector",
-                "mcpServers": [{ "url": "*" }],
-                "editor": "resourcePicker",
-                "default": []
             }
         },
 
