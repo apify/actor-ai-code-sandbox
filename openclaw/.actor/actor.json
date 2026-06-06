@@ -15,7 +15,7 @@
     "type": "object",
     "schemaVersion": 1,
     "properties": {
-       "skills": {
+       "agentSkills": {
         "title": "Skills",
         "type": "string",
         "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line, e.g. `anthropics/skills` (blank lines and `#` comments are ignored), or a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",

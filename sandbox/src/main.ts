@@ -81,7 +81,7 @@ const userEnvVars = parseEnvVars(input?.envVars);
 setUserEnvVars(userEnvVars);
 
 const nodeDependencies = parseNodeDependencies(input?.nodeDependencies);
-const skills = parseSkills(input?.skills);
+const skills = parseSkills(input?.agentSkills);
 
 log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
