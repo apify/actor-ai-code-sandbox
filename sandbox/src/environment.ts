@@ -8,7 +8,7 @@ import { log } from 'apify';
 
 import {
     INIT_SCRIPT_HEARTBEAT_INTERVAL_MS,
-    INIT_SCRIPT_TIMEOUT,
+    INIT_SCRIPT_TIMEOUT_MS,
     JS_TS_CODE_DIR,
     PYTHON_CODE_DIR,
     SANDBOX_DIR,
@@ -506,7 +506,7 @@ const runScriptStreaming = async (
         const timer = setTimeout(() => {
             timedOut = true;
             child.kill('SIGKILL');
-        }, INIT_SCRIPT_TIMEOUT);
+        }, INIT_SCRIPT_TIMEOUT_MS);
 
         const finish = (exitCode: number | null): void => {
             if (settled) return;
@@ -588,13 +588,13 @@ export const executeInitScript = async (
 
         if (timedOut) {
             log.error('Init script timed out', {
-                timeoutSeconds: INIT_SCRIPT_TIMEOUT / 1000,
+                timeoutSeconds: INIT_SCRIPT_TIMEOUT_MS / 1000,
                 elapsedSeconds,
             });
             return {
                 success: false,
                 stdout,
-                stderr: stderr || `Init script timed out after ${INIT_SCRIPT_TIMEOUT / 1000}s`,
+                stderr: stderr || `Init script timed out after ${INIT_SCRIPT_TIMEOUT_MS / 1000}s`,
                 exitCode: exitCode ?? 1,
             };
         }

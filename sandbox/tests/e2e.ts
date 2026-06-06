@@ -141,7 +141,7 @@ async function waitForHealth(runId: string, timeoutSeconds = 180): Promise<strin
         `${colors.green}ℹ${colors.reset} Waiting for Actor to be ready (dependencies installing, init script running)...`,
     );
 
-    const pollInterval = 5000; // 5 seconds
+    const pollIntervalMs = 5000;
     const startTime = Date.now();
 
     // First, get the container URL
@@ -218,7 +218,7 @@ async function waitForHealth(runId: string, timeoutSeconds = 180): Promise<strin
         }
 
         await new Promise((resolve) => {
-            setTimeout(resolve, pollInterval);
+            setTimeout(resolve, pollIntervalMs);
         });
     }
 
