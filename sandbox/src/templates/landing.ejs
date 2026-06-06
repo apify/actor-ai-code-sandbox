@@ -12,13 +12,17 @@
         <header class="hero">
             <div>
                 <h1>Apify AI Code Sandbox</h1>
-                <p class="lead">Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.</p>
+                <p class="lead">Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.<% if (idleTimeoutSecs > 0) { %> The container shuts down automatically after <%= idleTimeoutLabel %> of inactivity (configurable via the <code>idleTimeoutSecs</code> input).<% } %></p>
             </div>
             <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <a class="status-badge loading" id="statusBadge" href="/health" target="_blank" rel="noopener noreferrer">
                     <span class="status-dot"></span>
                     <span id="statusText">Checking...</span>
                 </a>
+                <div class="status-badge" id="shutdownBadge" style="display: none;" title="Time remaining before automatic idle shutdown">
+                    <span class="status-icon">⏻</span>
+                    <span id="shutdownText"></span>
+                </div>
                 <% if (isLocalMode) { %>
                     <div class="badge"><%= modeLabel %></div>
                 <% } %>
@@ -47,26 +51,30 @@
 
         <section class="card">
             <h2><span class="section-icon">📡</span> Connect with MCP</h2>
+            <p class="muted">No authentication required — the MCP server URL below is all you need to connect.</p>
             <h3 class="example-label">URL</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block"><%= serverUrl %>/mcp</pre>
             </div>
 
-            <h3 class="example-label">Claude Code</h3>
+            <h3 class="example-label">Set up examples</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block" data-lang="bash"><span class="hl-command">claude</span> <span class="hl-command">mcp</span> <span class="hl-command">add</span> <span class="hl-flag">--transport</span> http sandbox <span class="hl-url"><%= serverUrl %>/mcp</span></pre>
+                <pre class="code-block" data-lang="bash"><span class="hl-comment"># Claude Code</span>
+<span class="hl-command">claude</span> mcp add <span class="hl-flag">--transport</span> http sandbox <span class="hl-url"><%= serverUrl %>/mcp</span>
+
+<span class="hl-comment"># Codex</span>
+<span class="hl-command">codex</span> mcp add sandbox <span class="hl-flag">--url</span> <span class="hl-url"><%= serverUrl %>/mcp</span>
+
+<span class="hl-comment"># Any MCP client (mcpc)</span>
+<span class="hl-command">mcpc</span> connect <span class="hl-url"><%= serverUrl %>/mcp</span></pre>
             </div>
         </section>
 
         <section class="card">
-            <div class="collapsible-header" onclick="toggleCollapse('codeExec')">
-                <h2><span class="section-icon">⚡</span> Code execution API</h2>
-                <button class="collapse-btn" id="codeExecBtn">Hide</button>
-            </div>
+            <h2><span class="section-icon">⚡</span> Code execution API</h2>
 
-            <div class="collapsible-content" id="codeExec">
             <h3 class="example-label">Run bash command</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
@@ -90,16 +98,30 @@
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "console.log(\"hello\")", "<span class="hl-key">language</span>": "ts", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">10</span>}'</span></pre>
             </div>
+
+            <h3 class="example-label">Response format</h3>
+            <p class="muted">All <code>/exec</code> requests return:</p>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block" data-lang="json">{
+    <span class="hl-key">"stdout"</span>: <span class="hl-string">"string"</span>,
+    <span class="hl-key">"stderr"</span>: <span class="hl-string">"string"</span>,
+    <span class="hl-key">"exitCode"</span>: <span class="hl-number">0</span>,
+    <span class="hl-key">"language"</span>: <span class="hl-string">"shell|js|ts|py"</span>
+}</pre>
             </div>
+
+            <h3 class="example-label">Working directories</h3>
+            <ul class="list">
+                <li>Shell commands: <code>/sandbox</code> (default)</li>
+                <li>JavaScript/TypeScript: <code>/sandbox/js-ts</code> (default)</li>
+                <li>Python: <code>/sandbox/py</code> (default)</li>
+                <li>Override with <code>cwd</code> parameter (must be within <code>/sandbox</code>)</li>
+            </ul>
         </section>
 
         <section class="card">
-            <div class="collapsible-header" onclick="toggleCollapse('filesystem')">
-                <h2><span class="section-icon">📁</span> Filesystem API</h2>
-                <button class="collapse-btn" id="filesystemBtn">Hide</button>
-            </div>
-
-            <div class="collapsible-content" id="filesystem">
+            <h2><span class="section-icon">📁</span> Filesystem API</h2>
             <p class="muted">Direct file operations using HTTP methods. All paths relative to <code>/sandbox</code>.</p>
 
             <h3 class="example-label">Read file or list directory</h3>
@@ -140,16 +162,10 @@
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-I</span> <span class="hl-url"><%= serverUrl %>/fs/data.json</span></pre>
             </div>
-            </div>
         </section>
 
         <section class="card">
-            <div class="collapsible-header" onclick="toggleCollapse('proxyConfig')">
-                <h2><span class="section-icon">🔀</span> Proxy mappings</h2>
-                <button class="collapse-btn" id="proxyConfigBtn">Hide</button>
-            </div>
-
-            <div class="collapsible-content" id="proxyConfig">
+            <h2><span class="section-icon">🔀</span> Proxy mappings</h2>
             <p class="muted">Expose web servers that you start <em>inside</em> the sandbox (your own dev server, a TUI gateway, etc.) at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards <code>&lt;container-url&gt;/&lt;path&gt;</code> to <code>http://127.0.0.1:&lt;port&gt;/...</code> over HTTP and WebSocket. Changes apply immediately and persist across restarts.</p>
 
             <div data-no-md id="proxyMappingsList"></div>
@@ -180,57 +196,6 @@
 <span class="hl-comment"># Remove a mapping</span>
 <span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/proxy-config/openclaw</span></pre>
             </div>
-            </div>
-        </section>
-
-        <section class="card">
-            <div class="collapsible-header" onclick="toggleCollapse('responseFormat')">
-                <h2><span class="section-icon">📋</span> Response format</h2>
-                <button class="collapse-btn" id="responseFormatBtn">Hide</button>
-            </div>
-
-            <div class="collapsible-content" id="responseFormat">
-            <p class="muted">All <code>/exec</code> requests return:</p>
-            <div class="code-block-wrapper">
-                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block" data-lang="json">{
-    <span class="hl-key">"stdout"</span>: <span class="hl-string">"string"</span>,
-    <span class="hl-key">"stderr"</span>: <span class="hl-string">"string"</span>,
-    <span class="hl-key">"exitCode"</span>: <span class="hl-number">0</span>,
-    <span class="hl-key">"language"</span>: <span class="hl-string">"shell|js|ts|py"</span>
-}</pre>
-            </div>
-            </div>
-        </section>
-
-        <section class="card">
-            <div class="collapsible-header" onclick="toggleCollapse('workingDirs')">
-                <h2><span class="section-icon">📂</span> Working directories</h2>
-                <button class="collapse-btn" id="workingDirsBtn">Hide</button>
-            </div>
-
-            <div class="collapsible-content" id="workingDirs">
-            <ul class="list">
-                <li>Shell commands: <code>/sandbox</code> (default)</li>
-                <li>JavaScript/TypeScript: <code>/sandbox/js-ts</code> (default)</li>
-                <li>Python: <code>/sandbox/py</code> (default)</li>
-                <li>Override with <code>cwd</code> parameter (must be within <code>/sandbox</code>)</li>
-            </ul>
-            </div>
-        </section>
-
-        <section class="card">
-            <div class="collapsible-header" onclick="toggleCollapse('configuration')">
-                <h2><span class="section-icon">⚙️</span> Configuration</h2>
-                <button class="collapse-btn" id="configurationBtn">Hide</button>
-            </div>
-
-            <div class="collapsible-content" id="configuration">
-            <ul class="list">
-                <li><strong>Idle timeout</strong>: the container automatically shuts down after inactivity (default 10m).</li>
-                <li><strong>Execution timeout</strong>: recommended to set to 0 (infinite) on the platform; use the <code>idleTimeoutSeconds</code> input to control lifecycle.</li>
-            </ul>
-            </div>
         </section>
     </main>
 
@@ -253,17 +218,33 @@
             });
         }
 
-        function toggleCollapse(id) {
-            const content = document.getElementById(id);
-            const button = document.getElementById(id + 'Btn');
+        // Client-clock timestamp (ms) when idle shutdown will fire, re-synced
+        // from /health. null means no active idle timeout (disabled/offline).
+        let shutdownDeadline = null;
 
-            if (content.classList.contains('collapsed')) {
-                content.classList.remove('collapsed');
-                button.textContent = 'Hide';
-            } else {
-                content.classList.add('collapsed');
-                button.textContent = 'Show';
+        function formatDuration(totalSecs) {
+            const s = Math.max(0, totalSecs);
+            const pad = (n) => String(n).padStart(2, '0');
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            return h > 0 ? `${h}:${pad(m)}:${pad(sec)}` : `${m}:${pad(sec)}`;
+        }
+
+        function renderCountdown() {
+            const badge = document.getElementById('shutdownBadge');
+            const text = document.getElementById('shutdownText');
+
+            if (shutdownDeadline === null) {
+                badge.style.display = 'none';
+                return;
             }
+
+            const remainingSecs = Math.round((shutdownDeadline - Date.now()) / 1000);
+            badge.style.display = '';
+            text.textContent = remainingSecs <= 0
+                ? 'Shutting down…'
+                : `Idle shutdown in ${formatDuration(remainingSecs)}`;
         }
 
         async function checkHealth() {
@@ -281,10 +262,18 @@
                     badge.className = 'status-badge unhealthy';
                     text.textContent = data.status || 'Unhealthy';
                 }
+
+                // remainingSecs is only present while an idle timeout is active.
+                shutdownDeadline = typeof data.remainingSecs === 'number'
+                    ? Date.now() + data.remainingSecs * 1000
+                    : null;
             } catch (error) {
                 badge.className = 'status-badge unhealthy';
                 text.textContent = 'Offline';
+                shutdownDeadline = null;
             }
+
+            renderCountdown();
         }
 
         // Check health on page load
@@ -292,6 +281,9 @@
 
         // Refresh health status every 30 seconds
         setInterval(checkHealth, 30000);
+
+        // Tick the idle-shutdown countdown locally between health syncs
+        setInterval(renderCountdown, 1000);
 
         // Proxy Mappings Management
         async function loadProxyMappings() {
