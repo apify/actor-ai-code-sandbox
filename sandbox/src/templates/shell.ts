@@ -111,3 +111,95 @@ if [ -z "$SANDBOX_WELCOME_SHOWN" ] && [ -f /app/welcome.sh ]; then
     bash /app/welcome.sh
 fi
 `;
+
+/**
+ * Message shown when the terminal WebSocket drops but a reconnect may still work
+ * (replaces ttyd's bare "Press ⏎ to Reconnect").
+ */
+export const TERMINAL_DISCONNECT_MESSAGE = 'Connection lost — press ⏎ to reconnect';
+
+/**
+ * Message shown when a reconnect attempt fails — the Actor run has most likely
+ * stopped (idle timeout, abort, run timeout, migration). Pressing ⏎ still retries.
+ */
+export const TERMINAL_FINISHED_MESSAGE = 'Actor probably finished — press ⏎ to retry';
+
+/**
+ * Browser script injected into ttyd's terminal page to explain *why* the session
+ * ended, client-side.
+ *
+ * Why client-side: the terminal is proxied (browser ↔ Actor ↔ ttyd), and most
+ * stops (run timeout, hard abort, platform scale-down) kill the container with a
+ * signal — there is no advance Actor event and no time to flush a banner before
+ * the process dies. The browser, however, can always see the socket drop and any
+ * failed reconnect, so we relabel ttyd's own reconnect overlay here.
+ *
+ * ttyd (1.7.7) drives a single overlay <div> via `overlayAddon.showOverlay(text)`
+ * (html/src/components/terminal/xterm/index.ts). On a drop it shows
+ * "Press ⏎ to Reconnect"; a retry shows "Reconnecting..."; a fresh connection
+ * shows "Reconnected". We watch those exact strings: the first prompt means the
+ * link dropped (recoverable), but a prompt that follows a "Reconnecting..." means
+ * the retry failed — so the Actor is probably gone. The relabel is cosmetic;
+ * ttyd's Enter-to-reconnect handler stays intact, so retry still works.
+ */
+export const RECONNECT_OVERLAY_SCRIPT = `(function () {
+    var LOST = ${JSON.stringify(TERMINAL_DISCONNECT_MESSAGE)};
+    var FINISHED = ${JSON.stringify(TERMINAL_FINISHED_MESSAGE)};
+
+    // ttyd's exact overlay strings; \\u23ce is the ⏎ glyph it uses.
+    var PRESS_ENTER = 'Press \\u23ce to Reconnect';
+    var RECONNECTING = 'Reconnecting...';
+    var RECONNECTED = 'Reconnected';
+
+    // True once a reconnect has been attempted since the last live connection. If
+    // we then fall back to the reconnect prompt, the attempt failed.
+    var triedReconnect = false;
+
+    function relabel(el) {
+        var text = el.textContent;
+        if (text === RECONNECTING) {
+            triedReconnect = true;
+        } else if (text === RECONNECTED) {
+            triedReconnect = false;
+        } else if (text === PRESS_ENTER) {
+            var msg = triedReconnect ? FINISHED : LOST;
+            triedReconnect = false;
+            if (el.textContent !== msg) el.textContent = msg;
+        }
+    }
+
+    // The overlay text is set via textContent, so a change shows up as a childList
+    // mutation on the overlay element (or as the element being (re)attached).
+    function elementOf(node) {
+        if (!node) return null;
+        return node.nodeType === 3 ? node.parentNode : node;
+    }
+
+    var observer = new MutationObserver(function (records) {
+        for (var i = 0; i < records.length; i++) {
+            var r = records[i];
+            var target = elementOf(r.target);
+            if (target && target.nodeType === 1) relabel(target);
+            for (var j = 0; j < r.addedNodes.length; j++) {
+                var added = elementOf(r.addedNodes[j]);
+                if (added && added.nodeType === 1) relabel(added);
+            }
+        }
+    });
+    observer.observe(document.documentElement, { childList: true, subtree: true });
+})();`;
+
+/**
+ * Inject the reconnect-overlay script into ttyd's HTML page. The script only
+ * reacts to overlay text that appears long after load, so placement isn't
+ * critical — prefer right after <head>, falling back to <body>, then end of doc.
+ *
+ * @param html - The HTML document served by ttyd.
+ * @returns The HTML with the script injected.
+ */
+export const injectTerminalReconnectScript = (html: string): string => {
+    const tag = `<script>${RECONNECT_OVERLAY_SCRIPT}</script>`;
+    if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (match) => match + tag);
+    if (/<body[^>]*>/i.test(html)) return html.replace(/<body[^>]*>/i, (match) => match + tag);
+    return html + tag;
+};

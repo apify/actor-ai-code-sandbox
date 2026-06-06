@@ -41,7 +41,7 @@ import { broadcastToTerminals, buildShutdownBanner, encodeTtydOutputMessage } fr
 import { parseSkills } from './skills.js';
 import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
-import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
+import { injectTerminalReconnectScript, SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
 import {
     appendTtydOutput,
     buildShellUnavailableMessage,
@@ -1017,10 +1017,17 @@ const shutdownWithNotice = async (reason: string): Promise<void> => {
     await Actor.exit({ statusMessage: reason });
 };
 
-// Surface platform-initiated stops in the terminal too. The migration/abort
-// events are advance notices, and the platform stops the container with a
-// termination signal; in every case the banner is written synchronously so it
-// reaches the browser before the process exits.
+// Surface the platform stops the SDK tells us about in advance: `migrating`
+// (before a host migration) and `aborting` (only on a *graceful* abort). Both
+// arrive over the SDK's events WebSocket, ahead of the process being torn down,
+// so the banner has time to flush.
+//
+// Everything else — run timeout, a hard abort, platform scale-down — kills the
+// container with a signal and no advance event (the SDK installs no SIGTERM/
+// SIGINT handlers; it's event-driven). There's no reliable way to flush a banner
+// from a dying process, so those cases are covered in the browser instead: the
+// reconnect overlay injected into ttyd's page (see injectTerminalReconnectScript)
+// relabels the disconnect and reports "Actor probably finished" on a failed retry.
 if (!isLocalMode) {
     Actor.on('migrating', () => {
         notifyTerminalsOfShutdown('Actor is migrating to a new host and will resume shortly. Reconnect in a moment.');
@@ -1028,14 +1035,6 @@ if (!isLocalMode) {
     Actor.on('aborting', () => {
         notifyTerminalsOfShutdown('Actor run is being aborted.');
     });
-
-    // Only hook signals the SDK already handles, so we add the banner without
-    // taking over termination — a lone SIGTERM listener would suppress Node's
-    // default exit and leave the container hanging until the platform SIGKILLs it.
-    const notifyOnSignal = (): void => notifyTerminalsOfShutdown('Actor run is stopping.');
-    for (const signal of ['SIGINT', 'SIGTERM'] as const) {
-        if (process.listenerCount(signal) > 0) process.prependListener(signal, notifyOnSignal);
-    }
 }
 
 // Manual HTTP Proxy for ttyd
@@ -1046,19 +1045,49 @@ app.all('/shell{*rest}', (req, res) => {
         path = `/${  path}`;
     }
     path = translateLaunchParam(path);
+    // Ask ttyd for an uncompressed response so the terminal HTML can be rewritten
+    // (see injectTerminalReconnectScript below). ttyd's assets are tiny, so losing
+    // gzip here is negligible.
+    const headers = { ...req.headers, 'accept-encoding': 'identity' };
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
         path,
         method: req.method,
-        headers: req.headers,
+        headers,
     };
 
     const proxyReq = http.request(options, (proxyRes) => {
-        if (proxyRes.statusCode) {
-            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        // Inject the client-side reconnect notice into ttyd's terminal page. The
+        // server can't reliably push a shutdown message as the container is killed,
+        // so the browser relabels ttyd's reconnect overlay instead. Only the HTML
+        // document is rewritten; every other asset and status is piped through.
+        const isHtml = (proxyRes.headers['content-type'] || '').includes('text/html');
+        if (!isHtml) {
+            if (proxyRes.statusCode) {
+                res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            }
+            proxyRes.pipe(res);
+            return;
         }
-        proxyRes.pipe(res);
+
+        const chunks: Buffer[] = [];
+        proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+        proxyRes.on('end', () => {
+            const html = injectTerminalReconnectScript(Buffer.concat(chunks).toString('utf8'));
+            const outHeaders = { ...proxyRes.headers };
+            // The body length changed and is now fixed: drop any stale length/
+            // encoding framing and set the real one.
+            delete outHeaders['content-encoding'];
+            delete outHeaders['transfer-encoding'];
+            outHeaders['content-length'] = Buffer.byteLength(html).toString();
+            res.writeHead(proxyRes.statusCode || 200, outHeaders);
+            res.end(html);
+        });
+        proxyRes.on('error', (err) => {
+            log.error('Shell proxy response error', { error: err.message });
+            if (!res.headersSent) res.status(502).type('text/plain').send('Shell proxy error');
+        });
     });
 
     proxyReq.on('error', (err) => {
