@@ -334,6 +334,10 @@ code {
     border: 1px solid var(--border);
     white-space: nowrap;
 }
+a.status-badge:hover {
+    text-decoration: none;
+    border-color: var(--text-faint);
+}
 .status-dot {
     width: 8px;
     height: 8px;

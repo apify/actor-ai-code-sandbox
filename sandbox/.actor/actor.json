@@ -16,7 +16,7 @@
         "type": "object",
         "schemaVersion": 1,
         "properties": {
-            "skills": {
+            "agentSkills": {
                 "title": "Skills",
                 "type": "string",
                 "description": "Skill packages to install for the AI coding agent — SKILLS.md files with specialized instructions (see https://skills.sh/). One skill per line — a GitHub `owner/repo` (e.g. `anthropics/skills`) or repo URL (e.g. `https://github.com/anthropics/skills`); blank lines and `#` comments are ignored. Also accepts a JSON array like `[\"apify/agent-skills\", \"anthropics/skills\"]`.",
@@ -53,11 +53,12 @@
                 "isSecret": true
             },
             "idleTimeoutSecs": {
-                "title": "Idle timeout seconds",
+                "title": "Idle timeout",
                 "type": "integer",
                 "description": "The container shuts down automatically after this many seconds of inactivity (no requests or shell interaction). Set to 0 to disable. Recommended: set the Actor timeout to 0 (infinite) when using this.",
                 "default": 900,
                 "editor": "number",
+                "unit": "Seconds",
                 "prefill": 900
             },
             "proxyMappings": {

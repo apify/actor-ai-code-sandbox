@@ -24,7 +24,7 @@ This Actor [metamorphs](https://docs.apify.com/platform/actors/development/progr
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `skills` | Skill packages to install (SKILLS.md files), one per line or JSON array | `apify/agent-skills` |
+| `agentSkills` | Skill packages to install (SKILLS.md files), one per line or JSON array | `apify/agent-skills` |
 | `initShellScript` | Bash script to run before OpenCode starts | - |
 | `idleTimeoutSeconds` | Shutdown after inactivity | 900 |
 

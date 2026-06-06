@@ -19,7 +19,7 @@ export interface ActorInput {
      * or repo URL (e.g. `https://github.com/anthropics/skills`); blank lines and
      * `#` comments ignored — or a JSON array of skill name strings.
      */
-    skills?: string;
+    agentSkills?: string;
 
     /**
      * Node.js dependencies for JavaScript and TypeScript code execution.
