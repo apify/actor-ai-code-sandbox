@@ -12,7 +12,7 @@
         <header class="hero">
             <div>
                 <h1>Apify AI Code Sandbox</h1>
-                <p class="lead">Containerized sandbox environment for AI coding operations. Connect through HTTP, MCP, or the interactive shell.<% if (idleTimeoutSecs > 0) { %> The container shuts down automatically after <%= idleTimeoutLabel %> of inactivity (configurable via the <code>idleTimeoutSecs</code> input).<% } %></p>
+                <p class="lead">Containerized sandbox for AI coding operations. Connect through REST API, MCP, or the interactive shell.<% if (idleTimeoutSecs > 0) { %> The container shuts down automatically after <%= idleTimeoutLabel %> of inactivity.<% } %></p>
             </div>
             <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                 <a class="status-badge loading" id="statusBadge" href="/health" target="_blank" rel="noopener noreferrer">
@@ -51,8 +51,7 @@
 
         <section class="card">
             <h2><span class="section-icon">📡</span> Connect with MCP</h2>
-            <p class="muted">No authentication required — the MCP server URL below is all you need to connect.</p>
-            <h3 class="example-label">URL</h3>
+            <h3 class="example-label">MCP server URL (no authentication required)</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block"><%= serverUrl %>/mcp</pre>
@@ -61,13 +60,9 @@
             <h3 class="example-label">Set up examples</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block" data-lang="bash"><span class="hl-comment"># Claude Code</span>
+                <pre class="code-block" data-lang="bash">
 <span class="hl-command">claude</span> mcp add <span class="hl-flag">--transport</span> http sandbox <span class="hl-url"><%= serverUrl %>/mcp</span>
-
-<span class="hl-comment"># Codex</span>
 <span class="hl-command">codex</span> mcp add sandbox <span class="hl-flag">--url</span> <span class="hl-url"><%= serverUrl %>/mcp</span>
-
-<span class="hl-comment"># Any MCP client (mcpc)</span>
 <span class="hl-command">mcpc</span> connect <span class="hl-url"><%= serverUrl %>/mcp</span></pre>
             </div>
         </section>
@@ -75,7 +70,7 @@
         <section class="card">
             <h2><span class="section-icon">⚡</span> Code execution API</h2>
 
-            <h3 class="example-label">Run bash command</h3>
+            <h3 class="example-label">Run Bash command</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
