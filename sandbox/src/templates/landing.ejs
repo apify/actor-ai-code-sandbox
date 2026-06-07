@@ -14,14 +14,14 @@
                 <h1>Apify AI Code Sandbox</h1>
                 <p class="lead">An Actor for secure execution of arbitrary code. Connect using MCP, REST API, or interactive shell.<% if (idleTimeoutSecs > 0) { %> The Actor shuts down automatically after <%= idleTimeoutLabel %> of inactivity.<% } %></p>
             </div>
-            <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+            <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0;">
                 <a class="status-badge loading" id="statusBadge" href="/health" target="_blank" rel="noopener noreferrer">
                     <span class="status-dot"></span>
                     <span id="statusText">Checking...</span>
                 </a>
                 <div class="status-badge" id="shutdownBadge" style="display: none;" title="Time remaining before automatic idle shutdown">
                     <span class="status-icon">⏻</span>
-                    <span id="shutdownText"></span>
+                    <span id="shutdownText" class="countdown"></span>
                 </div>
                 <% if (isLocalMode) { %>
                     <div class="badge"><%= modeLabel %></div>
