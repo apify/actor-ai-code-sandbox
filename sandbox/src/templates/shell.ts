@@ -53,7 +53,7 @@ if [ -n "\$VIRTUAL_ENV" ]; then
     echo -e "  - Venv:       Active (\$VIRTUAL_ENV)"
 fi
 echo -e "  - Apify CLI:    \$APIFY_VER"
-echo -e "  - mcpc MCP CLI: \$MCPC_VER"
+echo -e "  - mcpc:         \$MCPC_VER"
 echo -e "  - Claude Code:  \$CLAUDE_CODE_VER"
 echo -e "  - Codex CLI:    \$CODEX_VER"
 echo -e "  - OpenCode:     \$OPENCODE_VER"
