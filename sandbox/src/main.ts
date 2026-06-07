@@ -38,7 +38,6 @@ import {
     removeProxyMapping,
     saveProxyConfig,
 } from './proxy-config.js';
-import { broadcastToTerminals, buildShutdownBanner, encodeTtydOutputMessage } from './shutdown.js';
 import { parseSkills } from './skills.js';
 import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
@@ -965,87 +964,16 @@ if (!isLocalMode) {
 }
 
 // ============================================================================
-// Shutdown notifications
+// Terminal disconnect messaging
 // ============================================================================
-
-/** Delay before a self-initiated exit so the banner flushes to connected browsers. */
-const TERMINAL_FLUSH_DELAY_MS = 1000;
-
-/**
- * Browser-facing WebSocket sockets for open /shell terminals. The terminal is
- * served through a proxy (browser ↔ this Actor ↔ ttyd), so these are the sockets
- * we write the shutdown banner to directly. Populated by the upgrade handler
- * below; entries remove themselves when the connection closes.
- */
-const terminalSockets = new Set<Duplex>();
-
-/** Guard so a shutdown shows the banner once, even if several stop events fire. */
-let shutdownBannerSent = false;
-
-/**
- * Show a shutdown banner in every open browser terminal. No-op in local mode.
- *
- * Writes a ready-made ttyd output frame straight to each browser socket rather
- * than relaying it through ttyd: at shutdown this process (the proxy) is about
- * to exit, and a direct write reaches the kernel — and thus the browser — even
- * if the long way round (PTY → ttyd → proxy → browser) wouldn't finish in time.
- * Falls back to the PTY devices only if no browser socket is tracked.
- * @param reason - Human-readable explanation of why the Actor is stopping.
- */
-const notifyTerminalsOfShutdown = (reason: string): void => {
-    if (isLocalMode || shutdownBannerSent) return;
-    shutdownBannerSent = true;
-
-    const banner = buildShutdownBanner(reason, process.env.ACTOR_RUN_ID);
-    const frame = encodeTtydOutputMessage(banner);
-    let delivered = 0;
-    for (const socket of terminalSockets) {
-        try {
-            socket.write(frame);
-            delivered += 1;
-        } catch {
-            // Socket already half-closed between iterations — ignore.
-        }
-    }
-
-    // No browser proxied through us (e.g. a directly attached ttyd): fall back
-    // to writing the banner to the PTY devices ttyd reads from.
-    if (delivered === 0) broadcastToTerminals(banner);
-};
-
-/**
- * Notify open terminals, then exit the Actor. The brief delay lets the banner
- * flush over the WebSocket before the process tears down the connection (after
- * which the terminal only shows ttyd's "Press ⏎ to Reconnect" overlay).
- * @param reason - Human-readable explanation of why the Actor is stopping.
- */
-const shutdownWithNotice = async (reason: string): Promise<void> => {
-    notifyTerminalsOfShutdown(reason);
-    await new Promise((resolve) => {
-        setTimeout(resolve, TERMINAL_FLUSH_DELAY_MS);
-    });
-    await Actor.exit({ statusMessage: reason });
-};
-
-// Surface the platform stops the SDK tells us about in advance: `migrating`
-// (before a host migration) and `aborting` (only on a *graceful* abort). Both
-// arrive over the SDK's events WebSocket, ahead of the process being torn down,
-// so the banner has time to flush.
 //
-// Everything else — run timeout, a hard abort, platform scale-down — kills the
-// container with a signal and no advance event (the SDK installs no SIGTERM/
-// SIGINT handlers; it's event-driven). There's no reliable way to flush a banner
-// from a dying process, so those cases are covered in the browser instead: the
-// reconnect overlay injected into ttyd's page (see injectTerminalReconnectScript)
-// relabels the disconnect and reports "Actor probably finished" on a failed retry.
-if (!isLocalMode) {
-    Actor.on('migrating', () => {
-        notifyTerminalsOfShutdown('Actor is migrating to a new host and will resume shortly. Reconnect in a moment.');
-    });
-    Actor.on('aborting', () => {
-        notifyTerminalsOfShutdown('Actor run is being aborted.');
-    });
-}
+// There is deliberately no server-side shutdown banner. Most stops (run timeout,
+// hard abort, platform scale-down) kill the container with a signal and no
+// advance event — the Apify SDK installs no SIGTERM/SIGINT handlers, it's driven
+// by the platform events WebSocket — and a dying process can't reliably flush a
+// message to the browser anyway. Instead the terminal page relabels ttyd's own
+// reconnect overlay client-side; see injectTerminalReconnectScript in
+// templates/shell.ts (it shows "Actor probably finished" when a retry fails).
 
 // Manual HTTP Proxy for ttyd
 app.all('/shell{*rest}', (req, res) => {
@@ -1141,16 +1069,6 @@ server.on('upgrade', (req, socket, head) => {
         req.url = req.url.replace(/^\/shell/, '') || '/';
         req.url = translateLaunchParam(req.url);
         log.info('Proxying shell WebSocket upgrade', { url: req.url });
-
-        // Remember this browser socket so the shutdown banner can be written to
-        // it directly (see notifyTerminalsOfShutdown), and forget it on close.
-        terminalSockets.add(socket as Duplex);
-        const forgetSocket = (): void => {
-            terminalSockets.delete(socket as Duplex);
-        };
-        socket.on('close', forgetSocket);
-        socket.on('end', forgetSocket);
-        socket.on('error', forgetSocket);
 
         // Track activity on WebSocket data
         socket.on('data', () => {
@@ -1464,7 +1382,7 @@ server.listen(port, () => {
             if (idleTimeMs > idleTimeoutSecs * 1000) {
                 const message = `Actor shut down after ${Math.floor(idleTimeoutSecs / 60)} minutes of inactivity.`;
                 log.warning(message);
-                await shutdownWithNotice(message);
+                await Actor.exit({ statusMessage: message });
             }
         }, 30000); // Check every 30 seconds
     }
