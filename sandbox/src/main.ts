@@ -1084,7 +1084,7 @@ server.on('upgrade', (req, socket, head) => {
         const reqPath = req.url || '/';
         // Extract just the path without query string for matching
         const pathOnly = reqPath.split('?')[0];
-        
+
         for (const mapping of getProxyMappings()) {
             if (pathOnly.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
                 matchedMapping = mapping;
@@ -1098,7 +1098,7 @@ server.on('upgrade', (req, socket, head) => {
             // Get the extra path after the exposed path
             let extraPath = pathOnly.slice(matchedMapping.path.length) || '';
             const queryString = reqPath.includes('?') ? reqPath.slice(reqPath.indexOf('?')) : '';
-            
+
             // Build the new URL: targetPath + extraPath + query string
             // Avoid double slashes when joining paths
             let finalPath = entry.targetPath;
@@ -1111,7 +1111,7 @@ server.on('upgrade', (req, socket, head) => {
                 }
                 finalPath += extraPath;
             }
-            
+
             req.url = finalPath + queryString;
             if (!req.url.startsWith('/')) {
                 req.url = `/${  req.url}`;
@@ -1193,7 +1193,7 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
     proxy.on('proxyRes', (proxyRes) => {
         const {location} = proxyRes.headers;
         if (location && typeof location === 'string') {
-            log.info('Proxy response with Location header', { 
+            log.info('Proxy response with Location header', {
                 statusCode: proxyRes.statusCode,
                 location,
                 targetPath,
@@ -1203,8 +1203,8 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
             if (location.startsWith(targetPath)) {
                 const newLocation = mapping.path + location.slice(targetPath.length);
                 proxyRes.headers.location = newLocation;
-                log.info('Rewrote redirect Location header', { 
-                    original: location, 
+                log.info('Rewrote redirect Location header', {
+                    original: location,
                     rewritten: newLocation,
                 });
             }
@@ -1267,10 +1267,10 @@ app.use((req: Request, res: Response, next) => {
 
         // Get the extra path after the exposed path (e.g., /openclaw/foo -> /foo)
         let extraPath = req.path.slice(matchedMapping.path.length) || '';
-        
+
         // Build the new URL: targetPath + extraPath + query string
         const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-        
+
         // Avoid double slashes when joining paths
         let finalPath = entry.targetPath;
         if (extraPath) {
@@ -1284,9 +1284,9 @@ app.use((req: Request, res: Response, next) => {
             }
             finalPath += extraPath;
         }
-        
+
         req.url = finalPath + queryString;
-        
+
         // Ensure URL starts with /
         if (!req.url.startsWith('/')) {
             req.url = `/${  req.url}`;
@@ -1380,7 +1380,7 @@ server.listen(port, () => {
         setInterval(async () => {
             const idleTimeMs = Date.now() - lastActivityAt;
             if (idleTimeMs > idleTimeoutSecs * 1000) {
-                const message = `Actor shut down after ${Math.floor(idleTimeoutSecs / 60)} minutes of inactivity.`;
+                const message = `Sandbox shut down after ${Math.round(idleTimeoutSecs)} seconds of inactivity.`;
                 log.warning(message);
                 await Actor.exit({ statusMessage: message });
             }
