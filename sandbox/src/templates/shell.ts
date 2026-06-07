@@ -47,28 +47,28 @@ CLAUDE_CODE_VER=\$(cat "\$VERSION_DIR/claude.txt" 2>/dev/null || claude --versio
 OPENCODE_VER=\$(cat "\$VERSION_DIR/opencode.txt" 2>/dev/null || opencode --version 2>/dev/null || echo 'not installed')
 CODEX_VER=\$(cat "\$VERSION_DIR/codex.txt" 2>/dev/null || codex --version 2>/dev/null || echo 'not installed')
 
-echo -e "  - Node.js:      \$NODE_VER"
-echo -e "  - Python:       \$PYTHON_VER"
+echo -e "  - Node.js:       \$NODE_VER"
+echo -e "  - Python:        \$PYTHON_VER"
 if [ -n "\$VIRTUAL_ENV" ]; then
-    echo -e "  - Venv:       Active (\$VIRTUAL_ENV)"
+    echo -e "  - Venv:          Active (\$VIRTUAL_ENV)"
 fi
-echo -e "  - Apify CLI:    \$APIFY_VER"
-echo -e "  - mcpc:         \$MCPC_VER"
-echo -e "  - Claude Code:  \$CLAUDE_CODE_VER"
-echo -e "  - Codex CLI:    \$CODEX_VER"
-echo -e "  - OpenCode:     \$OPENCODE_VER"
-echo -e "  - LLM API:      https://apify.com/apify/openrouter Actor"
-echo -e "  - Working dir:  \$(pwd)"
+echo -e "  - Apify CLI:     \$APIFY_VER"
+echo -e "  - mcpc:          \$MCPC_VER (https://github.com/apify/mcpc)"
+echo -e "  - Claude Code:   \$CLAUDE_CODE_VER"
+echo -e "  - Codex CLI:     \$CODEX_VER"
+echo -e "  - OpenCode:      \$OPENCODE_VER"
+echo -e "  - LLM API:       https://apify.com/apify/openrouter"
+echo -e "  - Working dir:   \$(pwd)"
 
 echo ""
 echo -e "\${BLUE}Links:\${NC}"
 if [ -n "\$ACTOR_WEB_SERVER_URL" ]; then
-    echo -e "  - Sandbox home:        \$ACTOR_WEB_SERVER_URL"
+    echo -e "  - Sandbox home:  \$ACTOR_WEB_SERVER_URL"
 fi
 if [ -n "\$ACTOR_RUN_ID" ]; then
-    echo -e "  - Actor run:       https://console.apify.com/view/runs/\$ACTOR_RUN_ID"
+    echo -e "  - Actor run:     https://console.apify.com/view/runs/\$ACTOR_RUN_ID"
 fi
-echo -e "  - Actor homepage:    https://apify.com/apify/ai-code-sandbox"
+echo -e "  - Actor page:    https://apify.com/apify/ai-code-sandbox"
 echo -e "  - Git repo:          https://github.com/apify/actor-ai-sandbox"
 echo ""
 `;
