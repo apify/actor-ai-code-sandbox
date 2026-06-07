@@ -12,12 +12,12 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Build ttyd from source, pinned for reproducible builds. The shutdown banner
-# writes ttyd's own WebSocket output frames directly to the browser terminal
-# (see sandbox/src/shutdown.ts, encodeTtydOutputMessage), so a protocol change
-# could silently stop the banner from rendering. Before bumping this version,
-# confirm terminal OUTPUT is still command byte '0' in ttyd's client protocol:
-# https://github.com/tsl0922/ttyd/blob/main/html/src/components/terminal/xterm/index.ts (the Command enum).
+# Build ttyd from source, pinned for reproducible builds. The terminal page
+# relabels ttyd's own reconnect overlay client-side (see RECONNECT_OVERLAY_SCRIPT
+# in sandbox/src/templates/shell.ts), keyed off ttyd's exact overlay strings
+# ("Press ⏎ to Reconnect", "Reconnecting...", "Reconnected"). Before bumping this
+# version, confirm those strings are unchanged in ttyd's client:
+# https://github.com/tsl0922/ttyd/blob/main/html/src/components/terminal/xterm/index.ts
 ARG TTYD_VERSION=1.7.7
 RUN git clone --branch "${TTYD_VERSION}" --depth 1 https://github.com/tsl0922/ttyd.git /tmp/ttyd \
     && cd /tmp/ttyd && mkdir build && cd build \
