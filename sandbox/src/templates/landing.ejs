@@ -13,16 +13,21 @@
             <div>
                 <h1>Apify AI Code Sandbox</h1>
                 <p class="lead">An Actor for secure execution of arbitrary code. Connect using MCP, REST API, or interactive shell.<% if (idleTimeoutSecs > 0) { %> The Actor shuts down automatically after <%= idleTimeoutLabel %> of inactivity.<% } %></p>
+                <p class="lead" style="margin-top: 8px; font-size: 13px;">Live service status is reported by <a href="<%= serverUrl %>/health"><%= serverUrl %>/health</a>.</p>
             </div>
             <div data-no-md style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap; flex-shrink: 0;">
-                <a class="status-badge loading" id="statusBadge" href="/health" target="_blank" rel="noopener noreferrer">
-                    <span class="status-dot"></span>
-                    <span id="statusText">Checking...</span>
+                <a class="status-badge" href="/llms.txt" target="_blank" rel="noopener noreferrer">
+                    <span class="status-icon">📄</span>
+                    <span>/llms.txt</span>
                 </a>
                 <div class="status-badge" id="shutdownBadge" style="display: none;" title="Time remaining before automatic idle shutdown">
                     <span class="status-icon">⏻</span>
                     <span id="shutdownText" class="countdown"></span>
                 </div>
+                <a class="status-badge loading" id="statusBadge" href="/health" target="_blank" rel="noopener noreferrer">
+                    <span class="status-dot"></span>
+                    <span id="statusText">Checking...</span>
+                </a>
                 <% if (isLocalMode) { %>
                     <div class="badge"><%= modeLabel %></div>
                 <% } %>
@@ -31,22 +36,26 @@
 
         <section class="card">
             <div class="card-header">
-                <h2><span class="section-icon">🔗</span> Quick links</h2>
+                <h2><span class="section-icon">🖥️</span> Interactive shell <code class="section-path">/shell</code></h2>
                 <div class="actions" data-no-md>
-                    <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer"><span class="dot"></span>Interactive shell</a>
+                    <a class="button" href="/shell/" target="_blank" rel="noopener noreferrer"><span class="dot"></span>Plain shell</a>
                     <a class="button" href="/shell?launch=claude" target="_blank" rel="noopener noreferrer"><span class="dot"></span>Claude Code</a>
+                    <a class="button" href="/shell?launch=codex" target="_blank" rel="noopener noreferrer"><span class="dot"></span>Codex CLI</a>
                     <a class="button" href="/shell?launch=opencode" target="_blank" rel="noopener noreferrer"><span class="dot"></span>OpenCode</a>
-                    <a class="button" href="/shell?launch=codex" target="_blank" rel="noopener noreferrer"><span class="dot"></span>Codex</a>
-                    <a class="button" href="/browse" target="_blank" rel="noopener noreferrer"><span class="dot"></span>Browse files</a>
-                    <a class="button ghost" href="/llms.txt" target="_blank" rel="noopener noreferrer">/llms.txt</a>
                 </div>
             </div>
-            <ul class="list">
-                <li><strong>Landing page</strong>: <a href="<%= serverUrl %>/"><%= serverUrl %>/</a></li>
-                <li><strong>Shell terminal</strong>: <a href="<%= serverUrl %>/shell/"><%= serverUrl %>/shell/</a></li>
-                <li><strong>File browser</strong>: <a href="<%= serverUrl %>/browse"><%= serverUrl %>/browse</a></li>
-                <li><strong>MCP endpoint</strong>: <a href="<%= serverUrl %>/mcp"><%= serverUrl %>/mcp</a></li>
-            </ul>
+
+            <h3 class="example-label">URL</h3>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><%= serverUrl %>/shell</pre>
+            </div>
+
+            <h3 class="example-label">Launch a specific command</h3>
+            <div class="code-block-wrapper">
+                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
+                <pre class="code-block"><%= serverUrl %>/shell?launch=ls</pre>
+            </div>
         </section>
 
         <section class="card">
