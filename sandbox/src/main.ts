@@ -1176,7 +1176,7 @@ server.listen(port, () => {
     console.log('🚀 Apify AI Sandbox Started');
     console.log('=====================================\n');
 
-    console.log('🏠 Sandbox landing page:');
+    console.log('🏠 Sandbox home page:');
     console.log(`   ${serverUrl}/\n`);
 
     // LLMs.txt documentation endpoint
