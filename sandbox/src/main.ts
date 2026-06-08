@@ -1180,7 +1180,7 @@ server.listen(port, () => {
     console.log(`   ${serverUrl}/\n`);
 
     // LLMs.txt documentation endpoint
-    console.log('📄 LLMs documentation:');
+    console.log('📄 Documentation for LLMs in Markdown:');
     console.log(`   ${serverUrl}/llms.txt\n`);
 
     // Shell terminal endpoint
