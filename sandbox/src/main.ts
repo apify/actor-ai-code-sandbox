@@ -1185,7 +1185,7 @@ server.listen(port, () => {
 
     // Shell terminal endpoint
     console.log('🖥️  Shell terminal:');
-    console.log(`   ${serverUrl}/shell/\n`);
+    console.log(`   ${serverUrl}/shell\n`);
 
     console.log('=====================================\n');
 
