@@ -91,7 +91,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #   - tsx: TypeScript execution in the execute-code endpoint
 #   - apify-cli: --ignore-scripts works around apify-client's `only-allow pnpm`
 #     preinstall hook
-#   - @apify/mcpc: Apify MCP CLI (binary: mcpc)
+#   - @apify/mcpc: MCP CLI (binary: mcpc)
 RUN npm install -g tsx \
     && npm install -g --ignore-scripts apify-cli \
     && npm install -g @apify/mcpc \

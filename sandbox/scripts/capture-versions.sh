@@ -34,12 +34,12 @@ else
     echo "⚠️  Apify CLI: not installed"
 fi
 
-# Capture MCP CLI version (optional)
+# Capture mcpc version (optional)
 if mcpc --version > "$VERSION_DIR/mcpc.txt" 2>/dev/null; then
-    echo "✅ MCP CLI: $(cat "$VERSION_DIR/mcpc.txt")"
+    echo "✅ mcpc: $(cat "$VERSION_DIR/mcpc.txt")"
 else
     echo "not installed" > "$VERSION_DIR/mcpc.txt"
-    echo "⚠️  MCP CLI: not installed"
+    echo "⚠️  mcpc: not installed"
 fi
 
 # Claude Code, OpenCode, and Codex are NOT captured here: they are installed

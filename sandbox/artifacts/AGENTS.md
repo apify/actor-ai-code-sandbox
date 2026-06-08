@@ -6,7 +6,7 @@ This document contains instructions for AI coding agents working inside the Apif
 
 ### 🚨 CRITICAL: Always Generate Signed Public URLs
 
-When sharing data with users, **NEVER return just storage IDs or raw API URLs** — they require authentication.  
+When sharing data with users, **NEVER return just storage IDs or raw API URLs** — they require authentication.
 **ALWAYS generate signed public URLs** that work without authentication.
 
 ### Key-Value Stores (Files & Binary Data)
@@ -557,7 +557,7 @@ cat /sandbox/py/report.pdf | apify actor set-value report.pdf --content-type app
 
 ## Resources
 
-- [Apify CLI Documentation](https://docs.apify.com/cli)
-- [Apify MCP CLI Repository](https://github.com/apify/mcp-cli)
+- [Apify CLI documentation](https://docs.apify.com/cli)
+- [mcpc MCP CLI repository](https://github.com/apify/mcpc)
 - [Key-Value Store API](https://docs.apify.com/api/v2#/reference/key-value-stores)
 - [Dataset API](https://docs.apify.com/api/v2#/reference/datasets)
