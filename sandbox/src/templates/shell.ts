@@ -13,24 +13,23 @@ export const WELCOME_SCRIPT = `#!/bin/bash
 GREEN='\\033[0;32m'
 BLUE='\\033[0;34m'
 ORANGE='\\033[38;5;208m'
+WHITE='\\033[0;97m'
 NC='\\033[0m' # No Color
 BOLD='\\033[1m'
 
 # Print ASCII Art (Apify logo)
-echo -e "\${GREEN}++++++++++\${NC}     \${BLUE}++++++++++\${NC}"
-echo -e "\${GREEN}+++++++++\${NC}       \${BLUE}+++++++++\${NC}"
-echo -e "\${GREEN}++++++++\${NC}         \${BLUE}++++++++\${NC}"
-echo -e "\${GREEN}+++++++\${NC}           \${BLUE}+++++++\${NC}"
-echo -e "\${GREEN}++++++\${NC}             \${BLUE}++++++\${NC}"
-echo -e "\${GREEN}+++++\${NC}               \${BLUE}+++++\${NC}"
-echo -e "\${GREEN}++++\${NC}                 \${BLUE}++++\${NC}"
-echo -e "\${GREEN}+++\${NC}         \${ORANGE}+\${NC}         \${BLUE}+++\${NC}"
-echo -e "\${GREEN}++\${NC}        \${ORANGE}+++++\${NC}        \${BLUE}++\${NC}"
-echo -e "        \${ORANGE}+++++++++\${NC}"
-echo -e "      \${ORANGE}+++++++++++++\${NC}"
-echo -e "     \${ORANGE}+++++++++++++++\${NC}"
-echo -e "   \${ORANGE}+++++++++++++++++++\${NC}"
-echo -e " \${ORANGE}+++++++++++++++++++++++\${NC}"
+echo -e "\${GREEN}GGGGGGGGGGGGGG.\${NC}    \${BLUE}bBBBBBBBBBBBBBb\${NC}                                                  \${WHITE}+++++\${NC}        \${WHITE}.+++####+#+\${NC}"
+echo -e "\${GREEN}GGGGGGGGGGGGg\${NC}       \${BLUE}.BBBBBBBBBBBBb\${NC}                                                  \${WHITE}#####\${NC}      \${WHITE}+###########+\${NC}"
+echo -e "\${GREEN}GGGGGGGGGGg\${NC}           \${BLUE}.BBBBBBBBBBb\${NC}                                                   \${WHITE}...\${NC}       \${WHITE}####+\${NC}"
+echo -e "\${GREEN}GGGGGGGGG.\${NC}              \${BLUE}bBBBBBBBBb\${NC}             \${WHITE}.+#########++\${NC}    \${WHITE}.###+.+#######+.\${NC}    \${WHITE}+###+\${NC} \${WHITE}.#################+\${NC}        \${WHITE}+###+\${NC}"
+echo -e "\${GREEN}GGGGGGG.\${NC}                  \${BLUE}bBBBBBBb\${NC}            \${WHITE}+###+..\${NC}  \${WHITE}.+####.\${NC}  \${WHITE}+######+++++#####.\${NC}  \${WHITE}+####\${NC} \${WHITE}.++++#####+++++####+\${NC}      \${WHITE}####+\${NC}"
+echo -e "\${GREEN}GGGGG.\${NC}                      \${BLUE}bBBBBb\${NC}             \${WHITE}..++++++++#####\${NC}  \${WHITE}+####\${NC}        \${WHITE}.####.\${NC} \${WHITE}+###+\${NC}      \${WHITE}####.\${NC}      \${WHITE}#####\${NC}   \${WHITE}.####.\${NC}"
+echo -e "\${GREEN}GGGg\${NC}          \${ORANGE}.oOOo.\${NC}          \${BLUE}bBBb\${NC}            \${WHITE}#####+++++++####\${NC}  \${WHITE}+####\${NC}         \${WHITE}####.\${NC} \${WHITE}+###+\${NC}      \${WHITE}####+\${NC}       \${WHITE}+####\${NC} \${WHITE}+####\${NC}"
+echo -e "\${GREEN}Gg\${NC}          \${ORANGE}oOOOOOOOOo\${NC}         \${BLUE}.Bb\${NC}           \${WHITE}.####\${NC}      \${WHITE}.#####\${NC}  \${WHITE}+#####+.\${NC}   \${WHITE}.+####+\${NC}  \${WHITE}+###+\${NC}      \${WHITE}####+\${NC}        \${WHITE}.#######+\${NC}"
+echo -e "         \${ORANGE}oOOOOOOOOOOOOOO.\${NC}                     \${WHITE}.+#########+#####\${NC} \${WHITE}+####+#########+.\${NC}   \${WHITE}+###+\${NC}      \${WHITE}####+\${NC}          \${WHITE}#####+\${NC}"
+echo -e "      \${ORANGE}.OOOOOOOOOOOOOOOOOOOo.\${NC}                       \${WHITE}...\${NC}          \${WHITE}+####\${NC}    \${WHITE}...\${NC}                                  \${WHITE}####.\${NC}"
+echo -e "   \${ORANGE}.oOOOOOOOOOOOOOOOOOOOOOOOOo.\${NC}                                 \${WHITE}+####\${NC}                                       \${WHITE}.####.\${NC}"
+echo -e " \${ORANGE}oOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO.\${NC}                               \${WHITE}.++++\${NC}                                       \${WHITE}++++\${NC}"
 
 echo ""
 echo -e "\${BOLD}Welcome to Apify AI Code Sandbox Actor!\${NC}"
