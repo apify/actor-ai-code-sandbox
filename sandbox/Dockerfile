@@ -97,24 +97,13 @@ RUN npm install -g tsx \
     && npm install -g @apify/mcpc \
     && npm cache clean --force
 
-# Install AI coding agent CLIs via npm. All three ship platform-specific
-# native binaries through optional deps; --include=optional ensures the
-# Linux binary is fetched. Codex and OpenCode bundle their own runtimes
-# (Rust / Bun) inside the binary; Claude Code ships a Bun-compiled binary
-# that does not invoke Node at runtime.
-#
-# OpenCode publishes two interchangeable x64 builds: an AVX2 build
-# (opencode-linux-x64) and a non-AVX2 "baseline" build. Neither carries a
-# cpu/libc field npm can filter on, so npm installs BOTH (~149 MB each) and
-# OpenCode selects one at runtime via an AVX2 probe. Every x86-64 server CPU
-# since ~2013 has AVX2, so we delete the baseline build to reclaim ~149 MB.
-# This must happen in the same layer as the install to actually shrink the image.
-RUN npm install -g --include=optional \
-        @anthropic-ai/claude-code \
-        @openai/codex \
-        opencode-ai \
-    && rm -rf "$(npm root -g)/opencode-linux-x64-baseline" \
-    && npm cache clean --force
+# NOTE: The AI coding agent CLIs (Claude Code, OpenCode, Codex) are deliberately
+# NOT installed here. They are installed lazily on first use — when the user
+# clicks a launch button on the landing page or types `claude`/`opencode`/`codex`
+# in the shell — by the functions in agent-launchers.sh (copied in below and
+# sourced from the shell rcfile). This keeps the image small and always pulls
+# the latest agent release. Their configuration overrides are still baked in
+# below, so each agent starts pre-configured the moment it is installed.
 
 # Create sandbox directory for operations
 RUN mkdir -p /sandbox && chmod 755 /sandbox
@@ -225,6 +214,18 @@ RUN mkdir -p /root/.codex && \
         'requires_openai_auth = false' \
         'wire_api = "chat"' \
         > /root/.codex/config.toml
+
+# Lazy-install launchers for the coding agents. Sourced by the shell rcfile (see
+# SANDBOX_BASHRC in src/templates/shell.ts) so a launch button or a plain
+# `claude`/`opencode`/`codex` installs the agent on first use, then runs it.
+# Validate the script at build time — both that it parses and that it actually
+# defines the three functions — so a broken launcher fails the build instead of
+# the user's first launch.
+COPY scripts/agent-launchers.sh /app/agent-launchers.sh
+RUN bash -n /app/agent-launchers.sh \
+    && bash -c '. /app/agent-launchers.sh; for f in claude opencode codex; do \
+        [ "$(type -t "$f")" = function ] || { echo "agent-launchers.sh did not define function: $f"; exit 1; }; \
+    done'
 
 # Capture tool versions at build time for fast shell startup
 COPY scripts/capture-versions.sh /tmp/capture-versions.sh

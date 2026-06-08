@@ -99,10 +99,16 @@ alias ll='ls -alF'
 alias la='ls -A'
 alias l='ls -CF'
 
+# Claude Code, OpenCode, and Codex are installed on first use — the image ships
+# only their config, not the CLIs. agent-launchers.sh defines a function per
+# agent that installs it (if missing) then runs it, so the landing-page launch
+# buttons and a plain \`claude\`/\`opencode\`/\`codex\` share one install-then-run path.
+[ -f /app/agent-launchers.sh ] && . /app/agent-launchers.sh
+
 # AI coding agents auto-approve all confirmations — safe inside the sandbox.
 # Claude Code: bypass mode + prompt suppression are baked into the image via
-# settings.json (see the Dockerfile), so a plain \`claude\` starts cleanly on every
-# launch path. Codex and OpenCode auto-approve via their own config files.
+# settings.json (see the Dockerfile). Codex and OpenCode auto-approve via their
+# own config files.
 
 # Print welcome message (once per session; the launch wrapper sources this
 # rcfile twice — to set up the env, then again for the persistent shell).
