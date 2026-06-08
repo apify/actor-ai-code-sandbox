@@ -1,9 +1,7 @@
 import { spawn } from 'node:child_process';
 import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
 import http, { createServer } from 'node:http';
-import { dirname, join } from 'node:path';
 import type { Duplex } from 'node:stream';
-import { fileURLToPath } from 'node:url';
 
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
@@ -11,10 +9,15 @@ import type { Request, Response } from 'express';
 import express from 'express';
 import httpProxy from 'http-proxy';
 
-import { SANDBOX_DIR } from './consts.js';
+import { DEFAULT_IDLE_TIMEOUT_SECS, SANDBOX_DIR } from './consts.js';
 import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { createMcpServer } from './mcp.js';
+import { configureAgentMcpServers } from './mcp-agent-config.js';
+import { writeMcpConfig } from './mcp-connections.js';
+import { translateLaunchParam } from './shell-launch.js';
+import { parseNodeDependencies } from './node-deps.js';
+import { setStatusMessage } from './status.js';
 import {
     appendFile,
     createDirectory,
@@ -29,21 +32,33 @@ import {
 } from './operations.js';
 import { initializePersistence, restoreMigrationState, saveMigrationState } from './persistence.js';
 import {
-    initializeProxyConfig,
-    getProxyMappings,
-    saveProxyConfig,
-    addProxyMapping,
-    removeProxyMapping,
-    onMappingsChange,
-} from './proxy-config.js';
+    addBridge,
+    getBridges,
+    initializeBridges,
+    onBridgesChange,
+    removeBridge,
+    saveBridges,
+} from './bridges.js';
+import { parseSkills } from './skills.js';
+import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
-import { SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
-import type { ActorInput, ProxyMapping } from './types.js';
+import { injectTerminalReconnectScript, SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
+import {
+    appendTtydOutput,
+    buildShellUnavailableMessage,
+    isTtydStartupCrash,
+    nextTtydRestartDelayMs,
+    TTYD_RESTART_MIN_MS,
+} from './ttyd.js';
+import type { ActorInput, Bridge } from './types.js';
 
 // Track initialization state
 let initializationComplete = false;
 let initializationError: string | null = null;
 let lastActivityAt = Date.now();
+// Seconds of inactivity before auto-shutdown (0 = disabled). Set from input at
+// startup; kept module-level so the landing page and /health can report it.
+let idleTimeoutSecs = DEFAULT_IDLE_TIMEOUT_SECS;
 
 // Check if running in local mode
 const isLocalMode = process.env.MODE === 'local';
@@ -68,13 +83,27 @@ const input = await Actor.getInput<ActorInput>();
 const userEnvVars = parseEnvVars(input?.envVars);
 setUserEnvVars(userEnvVars);
 
+const nodeDependencies = parseNodeDependencies(input?.nodeDependencies);
+const skills = parseSkills(input?.agentSkills);
+
 log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
-    hasNodeDependencies: !!input?.nodeDependencies && Object.keys(input.nodeDependencies).length > 0,
-    hasPythonRequirements: !!input?.pythonRequirementsTxt?.trim().length,
-    hasInitScript: !!input?.initShellScript?.trim().length,
+    hasSkills: skills.length > 0,
+    hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
+    hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
+    hasInitScript: !!input?.initBashScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
+    mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
 });
+
+// Write /sandbox/mcp.json with the configured MCP Connector proxies so
+// tools like `mcpc connect` find them as soon as the shell opens, then load the
+// same servers into Claude Code, Codex, and OpenCode so they appear as tools the
+// moment an agent launches (no `claude mcp add` / `mcpc connect` step needed).
+if (!isLocalMode) {
+    const mcpConfig = writeMcpConfig(input?.mcpConnectors);
+    configureAgentMcpServers(mcpConfig);
+}
 
 // Check for migration state and restore if available
 let restoredFromMigration = false;
@@ -101,9 +130,9 @@ if (restoredFromMigration) {
 } else {
     log.info('Setting up execution environment...');
     setupResult = await setupExecutionEnvironment({
-        skills: input?.skills,
-        nodeDependencies: input?.nodeDependencies,
-        pythonRequirementsTxt: input?.pythonRequirementsTxt,
+        skills,
+        nodeDependencies,
+        pythonRequirements: input?.pythonRequirements,
     });
 }
 
@@ -121,15 +150,13 @@ if (!setupResult.success) {
 }
 
 // Execute init script if provided and not empty
-if (input?.initShellScript && input.initShellScript.trim().length > 0) {
+if (input?.initBashScript && input.initBashScript.trim().length > 0) {
     log.info('Executing init script...');
-    const initResult = await executeInitScript(input.initShellScript);
+    await setStatusMessage('Running setup script');
+    const initResult = await executeInitScript(input.initBashScript);
     if (initResult.exitCode !== 0) {
-        log.error('Init script failed', {
-            exitCode: initResult.exitCode,
-            stderr: initResult.stderr,
-            stdout: initResult.stdout,
-        });
+        // The output and failure summary were already streamed by executeInitScript;
+        // record the reason so the /health endpoint can report it.
         initializationError = `Init script failed with exit code ${initResult.exitCode}`;
     }
 } else {
@@ -187,9 +214,10 @@ if (!isLocalMode) {
 initializationComplete = true;
 lastActivityAt = Date.now();
 log.info('Actor startup complete - ready for requests');
+await setStatusMessage('Sandbox is live');
 
-// Initialize proxy configuration
-initializeProxyConfig(input?.proxyMappings);
+// Initialize bridges
+initializeBridges(input?.bridges);
 
 // Create Express app
 const app = express();
@@ -208,6 +236,9 @@ app.use((req, _res, next) => {
         });
     }
 
+    // Any non-health request — including doc fetches like /llms.txt — counts as
+    // activity and pushes back the idle-shutdown timer. Only /health and the
+    // readiness probe are excluded, since they fire automatically.
     if (!isHealth && !isProbe) {
         lastActivityAt = Date.now();
     }
@@ -630,72 +661,75 @@ app.get('/', (_req: Request, res: Response) => {
         getLandingPageHTML({
             serverUrl,
             isLocalMode,
+            idleTimeoutSecs,
         }),
     );
 });
 
-// Favicon endpoint
-app.get('/favicon.ico', (_req: Request, res: Response) => {
-    res.setHeader('Content-Type', 'image/x-icon');
-    res.setHeader('Cache-Control', 'public, max-age=86400');
-    const faviconPath = join(dirname(fileURLToPath(import.meta.url)), 'templates', 'favicon.ico');
-    res.sendFile(faviconPath);
-});
+// Interactive filesystem browser. SPA fetches the /fs/* JSON endpoints to
+// render directory listings and file previews.
+const handleBrowse = (_req: Request, res: Response) => {
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(getBrowsePageHTML());
+};
+app.get('/browse', handleBrowse);
+app.get('/browse/', handleBrowse);
+app.get('/browse/*path', handleBrowse);
 
 // LLMs.txt endpoint (Markdown documentation for LLMs)
 app.get('/llms.txt', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(getLLMsMarkdown({ serverUrl }));
+    res.send(getLLMsMarkdown({ serverUrl, idleTimeoutSecs }));
 });
 
 // ============================================================================
-// Proxy Mappings Configuration Endpoints
+// Bridges configuration endpoints
 // ============================================================================
 
-// GET /proxy-config - Get current proxy mappings
-app.get('/proxy-config', (_req: Request, res: Response) => {
+// GET /bridges - Get current bridges
+app.get('/bridges', (_req: Request, res: Response) => {
     try {
-        const mappings = getProxyMappings();
-        res.json({ mappings });
+        const bridges = getBridges();
+        res.json({ bridges });
     } catch (error) {
-        log.error('Failed to get proxy config', { error: (error as Error).message });
+        log.error('Failed to get bridges', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
 
-// PUT /proxy-config - Replace all proxy mappings
-app.put('/proxy-config', (req: Request, res: Response) => {
+// PUT /bridges - Replace all bridges
+app.put('/bridges', (req: Request, res: Response) => {
     try {
-        const { mappings } = req.body;
+        const { bridges } = req.body;
 
-        if (!Array.isArray(mappings)) {
-            res.status(400).json({ error: 'mappings must be an array' });
+        if (!Array.isArray(bridges)) {
+            res.status(400).json({ error: 'bridges must be an array' });
             return;
         }
 
-        // Validate each mapping
-        for (const mapping of mappings) {
-            if (!mapping.path || typeof mapping.path !== 'string') {
-                res.status(400).json({ error: 'Each mapping must have a path string' });
+        // Validate each bridge
+        for (const bridge of bridges) {
+            if (!bridge.path || typeof bridge.path !== 'string') {
+                res.status(400).json({ error: 'Each bridge must have a path string' });
                 return;
             }
-            if (!mapping.target || typeof mapping.target !== 'string') {
-                res.status(400).json({ error: 'Each mapping must have a target string (full URL like http://127.0.0.1:3000/myapp)' });
+            if (!bridge.target || typeof bridge.target !== 'string') {
+                res.status(400).json({ error: 'Each bridge must have a target string (full URL like http://127.0.0.1:3000/myapp)' });
                 return;
             }
         }
 
-        saveProxyConfig(mappings);
-        log.info('Proxy config updated via API', { count: mappings.length });
-        res.json({ success: true, mappings: getProxyMappings() });
+        saveBridges(bridges);
+        log.info('Bridges updated via API', { count: bridges.length });
+        res.json({ success: true, bridges: getBridges() });
     } catch (error) {
-        log.error('Failed to update proxy config', { error: (error as Error).message });
+        log.error('Failed to update bridges', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
 
-// POST /proxy-config - Add a single proxy mapping
-app.post('/proxy-config', (req: Request, res: Response) => {
+// POST /bridges - Add a single bridge
+app.post('/bridges', (req: Request, res: Response) => {
     try {
         const { path, target } = req.body;
 
@@ -708,29 +742,29 @@ app.post('/proxy-config', (req: Request, res: Response) => {
             return;
         }
 
-        addProxyMapping({ path, target });
-        log.info('Proxy mapping added via API', { path, target });
-        res.json({ success: true, mappings: getProxyMappings() });
+        addBridge({ path, target });
+        log.info('Bridge added via API', { path, target });
+        res.json({ success: true, bridges: getBridges() });
     } catch (error) {
-        log.error('Failed to add proxy mapping', { error: (error as Error).message });
+        log.error('Failed to add bridge', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
 
-// DELETE /proxy-config/:path - Remove a proxy mapping
-app.delete('/proxy-config/*path', (req: Request, res: Response) => {
+// DELETE /bridges/:path - Remove a bridge
+app.delete('/bridges/*path', (req: Request, res: Response) => {
     try {
-        const pathToRemove = '/' + String(req.params.path || '');
+        const pathToRemove = `/${  String(req.params.path || '')}`;
 
-        const removed = removeProxyMapping(pathToRemove);
+        const removed = removeBridge(pathToRemove);
         if (removed) {
-            log.info('Proxy mapping removed via API', { path: pathToRemove });
-            res.json({ success: true, removed: pathToRemove, mappings: getProxyMappings() });
+            log.info('Bridge removed via API', { path: pathToRemove });
+            res.json({ success: true, removed: pathToRemove, bridges: getBridges() });
         } else {
-            res.status(404).json({ error: 'Mapping not found', path: pathToRemove });
+            res.status(404).json({ error: 'Bridge not found', path: pathToRemove });
         }
     } catch (error) {
-        log.error('Failed to remove proxy mapping', { error: (error as Error).message });
+        log.error('Failed to remove bridge', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
@@ -753,7 +787,12 @@ app.get('/health', (_req: Request, res: Response) => {
         return;
     }
 
-    res.json({ status: 'healthy' });
+    const body: Record<string, unknown> = { status: 'healthy', idleTimeoutSecs };
+    if (idleTimeoutSecs > 0) {
+        const elapsedSecs = Math.floor((Date.now() - lastActivityAt) / 1000);
+        body.remainingSecs = Math.max(0, idleTimeoutSecs - elapsedSecs);
+    }
+    res.json(body);
 });
 
 // MCP endpoint using proper StreamableHTTPServerTransport
@@ -858,30 +897,89 @@ app.post('/exec', async (req: Request, res: Response) => {
 // ============================================================================
 const shellPort = 7681;
 
+// ttyd's last words: the tail of its stdout/stderr (or a spawn error). Recorded
+// so a crash — e.g. a missing shared library — shows up in the Actor log and in
+// the /shell proxy response instead of a bare exit code. The delay grows as ttyd
+// keeps failing to start (see nextTtydRestartDelayMs).
+let lastTtydError = '';
+let ttydRestartDelayMs = TTYD_RESTART_MIN_MS;
+
 // Spawn ttyd process
 const spawnTtyd = () => {
     log.info('Spawning ttyd process...', { port: shellPort });
+    const startedAt = Date.now();
 
-    // Run ttyd with custom bashrc for better UX and environment alignment
+    // Run ttyd with custom bashrc for better UX and environment alignment. Pipe
+    // its stdio (rather than ignoring it) so a startup failure is captured.
     const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
-        stdio: 'ignore',
+        stdio: ['ignore', 'pipe', 'pipe'],
         cwd: SANDBOX_DIR,
         env: { ...process.env },
     });
 
+    // Keep only the tail of ttyd's output — its startup/error messages are short.
+    let recentOutput = '';
+    const capture = (chunk: Buffer): void => {
+        recentOutput = appendTtydOutput(recentOutput, chunk.toString());
+    };
+    ttyd.stdout?.on('data', capture);
+    ttyd.stderr?.on('data', capture);
+
+    // Schedule exactly one restart per spawn: a failed spawn emits 'error' (no
+    // 'exit'), a started process emits 'exit'; guard against both firing.
+    let settled = false;
+    const restartAfter = (crashed: boolean): void => {
+        if (settled) return;
+        settled = true;
+        const delay = crashed ? ttydRestartDelayMs : TTYD_RESTART_MIN_MS;
+        ttydRestartDelayMs = nextTtydRestartDelayMs(ttydRestartDelayMs, crashed);
+        setTimeout(spawnTtyd, delay);
+    };
+
     ttyd.on('error', (err) => {
+        lastTtydError = err.message;
         log.error('Failed to start ttyd', { error: err.message });
+        restartAfter(true);
     });
 
-    ttyd.on('exit', (code) => {
-        log.warning('ttyd process exited', { code });
-        setTimeout(spawnTtyd, 5000);
+    ttyd.on('exit', (code, signal) => {
+        const aliveMs = Date.now() - startedAt;
+        const output = recentOutput.trim();
+        if (output) lastTtydError = output;
+
+        // A fast exit means ttyd never really came up (missing shared library,
+        // port already bound, bad args). Shout, since the old fixed-5s retry with
+        // no detail produced an invisible crash loop behind "Shell Proxy Error".
+        const crashed = isTtydStartupCrash(aliveMs);
+        if (crashed) {
+            log.error('ttyd exited immediately — interactive shell is unavailable', {
+                code,
+                signal,
+                aliveMs,
+                output: output || '(no output captured)',
+            });
+        } else {
+            log.warning('ttyd process exited; restarting', { code, signal, aliveMs });
+        }
+        restartAfter(crashed);
     });
 };
 
 if (!isLocalMode) {
     spawnTtyd();
 }
+
+// ============================================================================
+// Terminal disconnect messaging
+// ============================================================================
+//
+// There is deliberately no server-side shutdown banner. Most stops (run timeout,
+// hard abort, platform scale-down) kill the container with a signal and no
+// advance event — the Apify SDK installs no SIGTERM/SIGINT handlers, it's driven
+// by the platform events WebSocket — and a dying process can't reliably flush a
+// message to the browser anyway. Instead the terminal page relabels ttyd's own
+// reconnect overlay client-side; see injectTerminalReconnectScript in
+// templates/shell.ts (it shows "Actor probably finished" when a retry fails).
 
 // Manual HTTP Proxy for ttyd
 app.all('/shell{*rest}', (req, res) => {
@@ -890,25 +988,64 @@ app.all('/shell{*rest}', (req, res) => {
     if (path.startsWith('?')) {
         path = `/${  path}`;
     }
+    path = translateLaunchParam(path);
+    // Ask ttyd for an uncompressed response so the terminal HTML can be rewritten
+    // (see injectTerminalReconnectScript below). ttyd's assets are tiny, so losing
+    // gzip here is negligible.
+    const headers = { ...req.headers, 'accept-encoding': 'identity' };
     const options = {
         hostname: '127.0.0.1',
         port: shellPort,
         path,
         method: req.method,
-        headers: req.headers,
+        headers,
     };
 
     const proxyReq = http.request(options, (proxyRes) => {
-        if (proxyRes.statusCode) {
-            res.writeHead(proxyRes.statusCode, proxyRes.headers);
+        // Inject the client-side reconnect notice into ttyd's terminal page. The
+        // server can't reliably push a shutdown message as the container is killed,
+        // so the browser relabels ttyd's reconnect overlay instead. Only the HTML
+        // document is rewritten; every other asset and status is piped through.
+        const isHtml = (proxyRes.headers['content-type'] || '').includes('text/html');
+        if (!isHtml) {
+            if (proxyRes.statusCode) {
+                res.writeHead(proxyRes.statusCode, proxyRes.headers);
+            }
+            proxyRes.pipe(res);
+            return;
         }
-        proxyRes.pipe(res);
+
+        const chunks: Buffer[] = [];
+        proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
+        proxyRes.on('end', () => {
+            const html = injectTerminalReconnectScript(Buffer.concat(chunks).toString('utf8'));
+            const outHeaders = { ...proxyRes.headers };
+            // The body length changed and is now fixed: drop any stale length/
+            // encoding framing and set the real one.
+            delete outHeaders['content-encoding'];
+            delete outHeaders['transfer-encoding'];
+            outHeaders['content-length'] = Buffer.byteLength(html).toString();
+            res.writeHead(proxyRes.statusCode || 200, outHeaders);
+            res.end(html);
+        });
+        proxyRes.on('error', (err) => {
+            log.error('Shell proxy response error', { error: err.message });
+            if (!res.headersSent) res.status(502).type('text/plain').send('Shell proxy error');
+        });
     });
 
     proxyReq.on('error', (err) => {
-        log.error('Manual proxy error', { error: err.message });
+        // ECONNREFUSED means ttyd isn't listening — it almost always crashed on
+        // startup (see spawnTtyd, which records its last output in lastTtydError).
+        // Surface that as a 503 instead of an opaque 500 so the cause is visible.
+        const ttydDown = (err as NodeJS.ErrnoException).code === 'ECONNREFUSED';
+        log.error('Manual proxy error', { error: err.message, ttydDown });
         if (!res.headersSent) {
-            res.status(500).send('Shell Proxy Error');
+            if (ttydDown) {
+                res.status(503).type('text/plain').send(buildShellUnavailableMessage(lastTtydError));
+            } else {
+                res.status(502).type('text/plain').send(`Shell proxy error: ${err.message}`);
+            }
         }
     });
 
@@ -921,9 +1058,22 @@ const wsProxy = httpProxy.createProxyServer({
     ws: true,
 });
 
+// Without this handler a WebSocket upgrade to a down ttyd emits an 'error' with
+// no listener, which Node escalates to an uncaught exception that can take down
+// the whole server. ttyd is restarted by spawnTtyd; just close the browser
+// socket so the terminal shows its reconnect overlay and retries.
+wsProxy.on('error', (err, _req, resOrSocket) => {
+    log.warning('Shell WebSocket proxy error', { error: (err as Error).message });
+    const socket = resOrSocket as Duplex | undefined;
+    if (socket && typeof socket.destroy === 'function' && !socket.destroyed) {
+        socket.destroy();
+    }
+});
+
 server.on('upgrade', (req, socket, head) => {
     if (req.url?.startsWith('/shell')) {
         req.url = req.url.replace(/^\/shell/, '') || '/';
+        req.url = translateLaunchParam(req.url);
         log.info('Proxying shell WebSocket upgrade', { url: req.url });
 
         // Track activity on WebSocket data
@@ -933,28 +1083,28 @@ server.on('upgrade', (req, socket, head) => {
 
         wsProxy.ws(req, socket as Duplex, head);
     } else {
-        // Check dynamic proxy mappings
-        let matchedMapping: ProxyMapping | null = null;
+        // Check bridges
+        let matchedBridge: Bridge | null = null;
         let matchedPath = '';
 
         const reqPath = req.url || '/';
         // Extract just the path without query string for matching
         const pathOnly = reqPath.split('?')[0];
-        
-        for (const mapping of getProxyMappings()) {
-            if (pathOnly.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
-                matchedMapping = mapping;
-                matchedPath = mapping.path;
+
+        for (const bridge of getBridges()) {
+            if (pathOnly.startsWith(bridge.path) && bridge.path.length > matchedPath.length) {
+                matchedBridge = bridge;
+                matchedPath = bridge.path;
             }
         }
 
-        if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
-            const entry = dynamicProxies.get(matchedMapping.path)!;
+        if (matchedBridge && bridgeProxies.has(matchedBridge.path)) {
+            const entry = bridgeProxies.get(matchedBridge.path)!;
 
             // Get the extra path after the exposed path
-            let extraPath = pathOnly.slice(matchedMapping.path.length) || '';
+            let extraPath = pathOnly.slice(matchedBridge.path.length) || '';
             const queryString = reqPath.includes('?') ? reqPath.slice(reqPath.indexOf('?')) : '';
-            
+
             // Build the new URL: targetPath + extraPath + query string
             // Avoid double slashes when joining paths
             let finalPath = entry.targetPath;
@@ -967,14 +1117,14 @@ server.on('upgrade', (req, socket, head) => {
                 }
                 finalPath += extraPath;
             }
-            
+
             req.url = finalPath + queryString;
             if (!req.url.startsWith('/')) {
-                req.url = '/' + req.url;
+                req.url = `/${  req.url}`;
             }
 
             log.info('Proxying dynamic WebSocket upgrade', {
-                exposedPath: matchedMapping.path,
+                exposedPath: matchedBridge.path,
                 targetUrl: entry.targetOrigin + req.url,
             });
 
@@ -989,23 +1139,23 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 // ============================================================================
-// Dynamic Proxy Mappings for Local Servers
+// Bridges: dynamic reverse proxies for local servers
 // ============================================================================
 
-// Store for dynamic proxy instances - stores { proxy, targetOrigin, targetPath }
-interface ProxyEntry {
+// Live reverse-proxy instances backing each bridge
+interface BridgeProxy {
     proxy: ReturnType<typeof httpProxy.createProxyServer>;
     targetOrigin: string;
     targetPath: string;
 }
-const dynamicProxies = new Map<string, ProxyEntry>();
+const bridgeProxies = new Map<string, BridgeProxy>();
 
 /**
- * Create or update proxy for a mapping
+ * Create or update the reverse proxy backing a bridge
  */
-const setupProxyForMapping = (mapping: ProxyMapping): void => {
+const setupBridge = (bridge: Bridge): void => {
     // Normalize target URL
-    let targetUrl = mapping.target;
+    let targetUrl = bridge.target;
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = `http://${targetUrl}`;
     }
@@ -1024,8 +1174,8 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
     }
 
     // Remove existing proxy if any
-    if (dynamicProxies.has(mapping.path)) {
-        const oldEntry = dynamicProxies.get(mapping.path);
+    if (bridgeProxies.has(bridge.path)) {
+        const oldEntry = bridgeProxies.get(bridge.path);
         oldEntry?.proxy.close();
     }
 
@@ -1033,12 +1183,12 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
     const proxy = httpProxy.createProxyServer({
         target: targetOrigin,
         changeOrigin: true,
-        // Don't rewrite redirects - we handle path mapping ourselves
+        // Don't rewrite redirects - we remap paths ourselves
         autoRewrite: false,
     });
 
     proxy.on('error', (err, _req, res) => {
-        log.error('Dynamic proxy error', { path: mapping.path, target: targetUrl, error: err.message });
+        log.error('Dynamic proxy error', { path: bridge.path, target: targetUrl, error: err.message });
         if (res && 'writeHead' in res && !res.headersSent) {
             res.writeHead(502, { 'Content-Type': 'text/plain' });
             res.end(`Proxy error: target server at ${targetUrl} not available`);
@@ -1047,86 +1197,86 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
 
     // Rewrite Location headers in redirects to map target paths back to exposed paths
     proxy.on('proxyRes', (proxyRes) => {
-        const location = proxyRes.headers['location'];
+        const {location} = proxyRes.headers;
         if (location && typeof location === 'string') {
-            log.info('Proxy response with Location header', { 
+            log.info('Proxy response with Location header', {
                 statusCode: proxyRes.statusCode,
                 location,
                 targetPath,
-                exposedPath: mapping.path
+                exposedPath: bridge.path
             });
             // If the location starts with the target path, rewrite it to the exposed path
             if (location.startsWith(targetPath)) {
-                const newLocation = mapping.path + location.slice(targetPath.length);
-                proxyRes.headers['location'] = newLocation;
-                log.info('Rewrote redirect Location header', { 
-                    original: location, 
+                const newLocation = bridge.path + location.slice(targetPath.length);
+                proxyRes.headers.location = newLocation;
+                log.info('Rewrote redirect Location header', {
+                    original: location,
                     rewritten: newLocation,
                 });
             }
         }
     });
 
-    dynamicProxies.set(mapping.path, { proxy, targetOrigin, targetPath });
-    log.info('Proxy configured', { exposedPath: mapping.path, targetOrigin, targetPath });
+    bridgeProxies.set(bridge.path, { proxy, targetOrigin, targetPath });
+    log.info('Proxy configured', { exposedPath: bridge.path, targetOrigin, targetPath });
 };
 
 /**
- * Remove proxy for a path
+ * Tear down the reverse proxy for a bridge path
  */
-const removeProxyForPath = (path: string): void => {
-    if (dynamicProxies.has(path)) {
-        const entry = dynamicProxies.get(path);
+const removeBridgeProxy = (path: string): void => {
+    if (bridgeProxies.has(path)) {
+        const entry = bridgeProxies.get(path);
         entry?.proxy.close();
-        dynamicProxies.delete(path);
+        bridgeProxies.delete(path);
         log.info('Proxy removed', { path });
     }
 };
 
 // Initialize proxies from current config
-for (const mapping of getProxyMappings()) {
-    setupProxyForMapping(mapping);
+for (const bridge of getBridges()) {
+    setupBridge(bridge);
 }
 
 // Listen for config changes and update proxies
-onMappingsChange((newMappings) => {
-    // Find removed mappings
-    const newPaths = new Set(newMappings.map((m) => m.path));
-    for (const path of dynamicProxies.keys()) {
+onBridgesChange((newBridges) => {
+    // Find removed bridges
+    const newPaths = new Set(newBridges.map((m) => m.path));
+    for (const path of bridgeProxies.keys()) {
         if (!newPaths.has(path)) {
-            removeProxyForPath(path);
+            removeBridgeProxy(path);
         }
     }
 
-    // Add/update mappings
-    for (const mapping of newMappings) {
-        setupProxyForMapping(mapping);
+    // Add/update bridges
+    for (const bridge of newBridges) {
+        setupBridge(bridge);
     }
 });
 
-// Dynamic proxy route handler - must be added BEFORE the 404 handler
+// Bridge route handler - must be added BEFORE the 404 handler
 // This catches all requests to mapped paths
 app.use((req: Request, res: Response, next) => {
-    // Find matching proxy mapping (longest path match)
-    let matchedMapping: ProxyMapping | null = null;
+    // Find the matching bridge (longest path match)
+    let matchedBridge: Bridge | null = null;
     let matchedPath = '';
 
-    for (const mapping of getProxyMappings()) {
-        if (req.path.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
-            matchedMapping = mapping;
-            matchedPath = mapping.path;
+    for (const bridge of getBridges()) {
+        if (req.path.startsWith(bridge.path) && bridge.path.length > matchedPath.length) {
+            matchedBridge = bridge;
+            matchedPath = bridge.path;
         }
     }
 
-    if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
-        const entry = dynamicProxies.get(matchedMapping.path)!;
+    if (matchedBridge && bridgeProxies.has(matchedBridge.path)) {
+        const entry = bridgeProxies.get(matchedBridge.path)!;
 
         // Get the extra path after the exposed path (e.g., /openclaw/foo -> /foo)
-        let extraPath = req.path.slice(matchedMapping.path.length) || '';
-        
+        let extraPath = req.path.slice(matchedBridge.path.length) || '';
+
         // Build the new URL: targetPath + extraPath + query string
         const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-        
+
         // Avoid double slashes when joining paths
         let finalPath = entry.targetPath;
         if (extraPath) {
@@ -1140,17 +1290,17 @@ app.use((req: Request, res: Response, next) => {
             }
             finalPath += extraPath;
         }
-        
+
         req.url = finalPath + queryString;
-        
+
         // Ensure URL starts with /
         if (!req.url.startsWith('/')) {
-            req.url = '/' + req.url;
+            req.url = `/${  req.url}`;
         }
 
         log.info('Proxying request', {
             originalPath: req.path,
-            exposedPath: matchedMapping.path,
+            exposedPath: matchedBridge.path,
             extraPath,
             targetPath: entry.targetPath,
             finalUrl: req.url,
@@ -1168,12 +1318,12 @@ app.use((req: Request, res: Response, next) => {
 
 // Start server
 server.listen(port, () => {
-    log.info(`Apify AI Sandbox listening on port ${port}`);
+    log.info(`Apify AI Code Sandbox listening on port ${port}`);
     log.info(`Server URL: ${serverUrl}`);
 
     // Print startup information
     console.log('\n=====================================');
-    console.log('🚀 Apify AI Sandbox Started');
+    console.log('🚀 Apify AI Code Sandbox Started');
     console.log('=====================================\n');
 
     console.log('🏠 Sandbox home page:');
@@ -1183,6 +1333,10 @@ server.listen(port, () => {
     console.log('📄 Documentation for LLMs in Markdown:');
     console.log(`   ${serverUrl}/llms.txt\n`);
 
+    console.log('🗂  File browser:');
+    console.log(`   GET ${serverUrl}/browse`);
+    console.log('       Interactive web UI for navigating /sandbox\n');
+
     // Shell terminal endpoint
     console.log('🖥️  Shell terminal:');
     console.log(`   ${serverUrl}/shell\n`);
@@ -1190,14 +1344,15 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     // Start idle timeout check
-    const idleTimeoutSecs = input?.idleTimeoutSeconds ?? 600;
+    idleTimeoutSecs = input?.idleTimeoutSecs ?? DEFAULT_IDLE_TIMEOUT_SECS;
     if (idleTimeoutSecs > 0) {
         log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
         setInterval(async () => {
             const idleTimeMs = Date.now() - lastActivityAt;
             if (idleTimeMs > idleTimeoutSecs * 1000) {
-                const message = `Actor shut down after ${Math.floor(idleTimeoutSecs / 60)} minutes of inactivity.`;
+                const message = `Sandbox shut down after ${Math.round(idleTimeoutSecs)} seconds of inactivity.`;
                 log.warning(message);
+                await setStatusMessage('Sandbox is shutting down');
                 await Actor.exit({ statusMessage: message });
             }
         }, 30000); // Check every 30 seconds

@@ -1,14 +1,10 @@
 {
     "$schema": "https://opencode.ai/config.json",
-    "permission": {
-        "bash": "allow",
-        "edit": "allow",
-        "webfetch": "allow"
-    },
+    "permission": "allow",
     "provider": {
         "apify-openrouter": {
             "npm": "@ai-sdk/openai-compatible",
-            "name": "Apify OpenRouter Proxy",
+            "name": "apify/openrouter Actor",
             "options": {
                 "baseURL": "https://openrouter.apify.actor/api/v1",
                 "apiKey": "dummy-api-key",
@@ -17,14 +13,14 @@
                 }
             },
             "models": {
-                "anthropic/claude-haiku-4.5": {
-                    "name": "Claude 4.5 Haiku"
+                "~anthropic/claude-haiku-latest": {
+                    "name": "Claude Haiku (latest)"
                 },
-                "anthropic/claude-sonnet-4.5": {
-                    "name": "Claude 4.5 Sonnet"
+                "~anthropic/claude-sonnet-latest": {
+                    "name": "Claude Sonnet (latest)"
                 },
-                "anthropic/claude-opus-4.5": {
-                    "name": "Claude 4.5 Opus"
+                "~anthropic/claude-opus-latest": {
+                    "name": "Claude Opus (latest)"
                 },
                 "x-ai/grok-code-fast-1": {
                     "name": "Grok Code Fast 1"
@@ -38,5 +34,5 @@
             }
         }
     },
-    "model": "apify-openrouter/anthropic/claude-sonnet-4.5"
+    "model": "apify-openrouter/~anthropic/claude-opus-latest"
 }

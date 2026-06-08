@@ -1,12 +1,19 @@
 // Environment setup for code execution (Node.js and Python)
-import { exec } from 'node:child_process';
+import { exec, spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
 
 import { log } from 'apify';
 
-import { INIT_SCRIPT_TIMEOUT, JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
+import {
+    INIT_SCRIPT_HEARTBEAT_INTERVAL_MS,
+    INIT_SCRIPT_TIMEOUT_MS,
+    JS_TS_CODE_DIR,
+    PYTHON_CODE_DIR,
+    SANDBOX_DIR,
+} from './consts.js';
+import { setStatusMessage } from './status.js';
 
 const execAsync = promisify(exec);
 
@@ -163,6 +170,7 @@ export const installNodeLibraries = async (
 
     const packageSpecs = Object.entries(dependencies).map(([pkg, version]) => `${pkg}@${version}`);
     log.info('Installing Node.js dependencies', { count: packageSpecs.length, packages: packageSpecs });
+    await setStatusMessage('Installing Node.js dependencies');
 
     const installed: string[] = [];
     const failed: { library: string; error: string }[] = [];
@@ -226,6 +234,7 @@ export const installPythonLibraries = async (
     }
 
     log.info('Installing Python requirements', { count: requirements.length, requirements });
+    await setStatusMessage('Installing Python dependencies');
 
     const installed: string[] = [];
     const failed: { library: string; error: string }[] = [];
@@ -310,7 +319,7 @@ export const installSkills = async (
 export const setupExecutionEnvironment = async (input: {
     skills?: string[];
     nodeDependencies?: Record<string, string>;
-    pythonRequirementsTxt?: string;
+    pythonRequirements?: string;
 }): Promise<{
     success: boolean;
     skillsSetup: { success: boolean; installed: string[]; failed: { skill: string; error: string }[] };
@@ -349,7 +358,7 @@ export const setupExecutionEnvironment = async (input: {
     const [skillsSetup, nodeSetup, pythonSetup] = await Promise.all([
         installSkills(input.skills),
         installNodeLibraries(input.nodeDependencies),
-        installPythonLibraries(input.pythonRequirementsTxt),
+        installPythonLibraries(input.pythonRequirements),
     ]);
 
     const success = errors.length === 0 && skillsSetup.success && nodeSetup.success && pythonSetup.success;
@@ -426,6 +435,102 @@ export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
 };
 
 /**
+ * Buffers a text stream and forwards it to the log one complete line at a time,
+ * each tagged with the given prefix. Partial lines are held until the newline
+ * arrives; call flush() at the end to emit any trailing text.
+ */
+const createLineStreamer = (prefix: string) => {
+    let buffer = '';
+    return {
+        push(text: string): void {
+            buffer += text;
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+            for (const line of lines) {
+                log.info(`${prefix} ${line}`);
+            }
+        },
+        flush(): void {
+            if (buffer.length > 0) {
+                log.info(`${prefix} ${buffer}`);
+                buffer = '';
+            }
+        },
+    };
+};
+
+/**
+ * Run a bash script, streaming its stdout/stderr to the log line-by-line as it
+ * runs so progress is visible and failures are easy to pinpoint (instead of one
+ * silent gap followed by a dump at the end). A heartbeat is logged periodically
+ * so long, quiet steps (e.g. `npm install`) don't look like a hang. The full
+ * output is still collected and returned for programmatic callers.
+ */
+const runScriptStreaming = async (
+    scriptPath: string,
+): Promise<{ stdout: string; stderr: string; exitCode: number | null; timedOut: boolean }> => {
+    return new Promise((resolve) => {
+        const child = spawn('bash', [scriptPath], {
+            cwd: SANDBOX_DIR,
+            env: getExecutionEnvironment(),
+        });
+
+        let stdout = '';
+        let stderr = '';
+        let timedOut = false;
+        let settled = false;
+
+        // stderr is streamed at info level too: tools like npm/apt/git write
+        // normal progress there, so the exit code (not the stream) decides
+        // success. Output is tagged so it's distinguishable from harness logs.
+        const stdoutStreamer = createLineStreamer('[init]');
+        const stderrStreamer = createLineStreamer('[init]');
+
+        child.stdout?.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            stdout += text;
+            stdoutStreamer.push(text);
+        });
+        child.stderr?.on('data', (chunk: Buffer) => {
+            const text = chunk.toString();
+            stderr += text;
+            stderrStreamer.push(text);
+        });
+
+        const startedAt = Date.now();
+        const heartbeat = setInterval(() => {
+            log.info('Init script still running...', {
+                elapsedSeconds: Math.round((Date.now() - startedAt) / 1000),
+            });
+        }, INIT_SCRIPT_HEARTBEAT_INTERVAL_MS);
+
+        // spawn() has no built-in rejection on timeout (unlike the old exec
+        // call), so enforce it here and kill the process if it overruns.
+        const timer = setTimeout(() => {
+            timedOut = true;
+            child.kill('SIGKILL');
+        }, INIT_SCRIPT_TIMEOUT_MS);
+
+        const finish = (exitCode: number | null): void => {
+            if (settled) return;
+            settled = true;
+            clearInterval(heartbeat);
+            clearTimeout(timer);
+            stdoutStreamer.flush();
+            stderrStreamer.flush();
+            resolve({ stdout, stderr, exitCode, timedOut });
+        };
+
+        // 'error' fires when bash itself can't be spawned (no 'close' follows).
+        child.on('error', (err) => {
+            stderr += err.message;
+            finish(1);
+        });
+        child.on('close', (code) => finish(code));
+    });
+};
+
+/**
  * Execute initialization bash script
  * Runs custom bash script in /sandbox directory to setup environment
  * In local mode (MODE=local), skips script execution
@@ -478,49 +583,48 @@ export const executeInitScript = async (
 
         log.debug('Init script written to temp file', { path: tempFile });
 
-        // Execute script
-        const execOptions: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv } = {
-            cwd: SANDBOX_DIR,
-            timeout: INIT_SCRIPT_TIMEOUT,
-            env: getExecutionEnvironment(),
-        };
+        // Execute the script, streaming output live so progress is visible and
+        // failures are easy to locate (rather than dumping everything at the end).
+        const startedAt = Date.now();
+        const { stdout, stderr, exitCode, timedOut } = await runScriptStreaming(tempFile);
+        const elapsedSeconds = ((Date.now() - startedAt) / 1000).toFixed(1);
 
-        const { stdout, stderr } = await execAsync(`bash ${tempFile}`, execOptions);
+        if (timedOut) {
+            log.error('Init script timed out', {
+                timeoutSeconds: INIT_SCRIPT_TIMEOUT_MS / 1000,
+                elapsedSeconds,
+            });
+            return {
+                success: false,
+                stdout,
+                stderr: stderr || `Init script timed out after ${INIT_SCRIPT_TIMEOUT_MS / 1000}s`,
+                exitCode: exitCode ?? 1,
+            };
+        }
 
-        log.info('Init script execution completed');
-        log.info('-----------------------------------------');
-        log.info(stdout || '(no output)');
-        if (stderr) {
-            log.warning(stderr);
+        if (exitCode === 0) {
+            log.info('Init script execution completed', { elapsedSeconds });
+            return { success: true, stdout, stderr, exitCode: 0 };
         }
-        log.info('-----------------------------------------');
 
-        return {
-            success: true,
-            stdout,
-            stderr,
-            exitCode: 0,
-        };
-    } catch (error) {
-        const err = error as { message: string; stdout?: string; stderr?: string; code?: number };
-        log.error('Init script execution failed', { exitCode: err.code || 1 });
-        log.error('-----------------------------------------');
-        if (err.stdout) {
-            log.error(err.stdout);
-        }
-        if (err.stderr) {
-            log.error(err.stderr);
-        }
-        if (!err.stdout && !err.stderr) {
-            log.error(err.message);
-        }
-        log.error('-----------------------------------------');
-
+        // Output was already streamed live above, so just summarise the failure.
+        log.error('Init script execution failed', { exitCode, elapsedSeconds });
         return {
             success: false,
-            stdout: err.stdout || '',
-            stderr: err.stderr || err.message || 'Init script execution failed',
-            exitCode: err.code || 1,
+            stdout,
+            stderr: stderr || 'Init script execution failed',
+            exitCode: exitCode ?? 1,
+        };
+    } catch (error) {
+        // Reaches here only if setup (e.g. writing the temp file) fails; the
+        // script run itself reports failures via its exit code above.
+        const err = error as Error;
+        log.error('Failed to run init script', { error: err.message });
+        return {
+            success: false,
+            stdout: '',
+            stderr: err.message || 'Failed to run init script',
+            exitCode: 1,
         };
     } finally {
         // Clean up temporary files

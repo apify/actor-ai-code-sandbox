@@ -1,45 +1,46 @@
 /**
- * Type definitions for the Apify AI Sandbox Actor
+ * Type definitions for the Apify AI Code Sandbox Actor
  */
 
 /**
- * Proxy mapping configuration for routing requests to local servers
+ * A bridge exposes a local server (running inside the sandbox) at a public
+ * URL path on the container.
  */
-export interface ProxyMapping {
+export interface Bridge {
     /** Exposed URL path on the container (e.g., /openclaw) */
     path: string;
-    /** Full URL of the local service to proxy to (e.g., http://127.0.0.1:18789/openclaw) */
+    /** Full URL of the local service to forward to (e.g., http://127.0.0.1:18789/openclaw) */
     target: string;
 }
 
 export interface ActorInput {
     /**
-     * Skill packages to install for the AI coding agent
-     * Skills are SKILL.md files that provide specialized instructions
-     * Format: array of skill package names or URLs
-     * Example: ["apify/agent-skills"]
+     * Skill packages to install for the AI coding agent (SKILLS.md files).
+     * Accepts one skill per line — a GitHub `owner/repo` (e.g. `anthropics/skills`)
+     * or repo URL (e.g. `https://github.com/anthropics/skills`); blank lines and
+     * `#` comments ignored — or a JSON array of skill name strings.
      */
-    skills?: string[];
+    agentSkills?: string;
 
     /**
-     * Node.js dependencies object for JavaScript and TypeScript code execution
-     * Format: { "package-name": "version", ... }
-     * Example: { "zod": "^3.0", "axios": "latest" }
+     * Node.js dependencies for JavaScript and TypeScript code execution.
+     * Accepts either npm CLI-style lines (one `package@version` per line, missing
+     * `@version` defaults to `latest`) or a JSON object (`{ "pkg": "version" }`).
      */
-    nodeDependencies?: Record<string, string>;
+    nodeDependencies?: string;
 
     /**
      * Python requirements in requirements.txt format for Python code execution
      * Format: one package per line with optional version specifiers
      * Example: "requests==2.31.0\npandas>=2.0.0\nnumpy"
      */
-    pythonRequirementsTxt?: string;
+    pythonRequirements?: string;
 
     /**
      * Optional bash script to customize the sandbox environment
      * Runs after dependency installation in /sandbox directory
      */
-    initShellScript?: string;
+    initBashScript?: string;
 
     /**
      * Secret environment variables exposed to the sandbox shell, init script,
@@ -51,14 +52,22 @@ export interface ActorInput {
     /**
      * Graceful shutdown timeout in seconds if no activity is detected.
      * Activity includes HTTP requests and shell interaction.
-     * @default 600 (10 minutes)
+     * @default 900 (15 minutes)
      */
-    idleTimeoutSeconds?: number;
+    idleTimeoutSecs?: number;
 
     /**
-     * Proxy mappings for routing requests to local servers
-     * Maps exposed paths to local service URLs
+     * Bridges exposing local servers at public URL paths on the container.
+     * Maps exposed paths to local service URLs.
      * Example: [{ "path": "/openclaw", "target": "http://127.0.0.1:18789/openclaw" }]
      */
-    proxyMappings?: ProxyMapping[];
+    bridges?: Bridge[];
+
+    /**
+     * MCP Connector IDs the Actor can use. At runtime the platform exposes
+     * each Connector as a proxy at `${APIFY_MCP_PROXY_URL}/<connectorId>`,
+     * and the sandbox writes the list to `/sandbox/mcp.json` on startup
+     * so tools like `mcpc connect` can pick them up.
+     */
+    mcpConnectors?: string[];
 }

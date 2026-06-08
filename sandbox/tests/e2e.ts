@@ -1,5 +1,5 @@
 /**
- * E2E Platform Test for Apify AI Sandbox Actor
+ * E2E Platform Test for Apify AI Code Sandbox Actor
  *
  * This script:
  * 1. Deploys and starts the Actor on Apify platform
@@ -141,7 +141,7 @@ async function waitForHealth(runId: string, timeoutSeconds = 180): Promise<strin
         `${colors.green}ℹ${colors.reset} Waiting for Actor to be ready (dependencies installing, init script running)...`,
     );
 
-    const pollInterval = 5000; // 5 seconds
+    const pollIntervalMs = 5000;
     const startTime = Date.now();
 
     // First, get the container URL
@@ -218,7 +218,7 @@ async function waitForHealth(runId: string, timeoutSeconds = 180): Promise<strin
         }
 
         await new Promise((resolve) => {
-            setTimeout(resolve, pollInterval);
+            setTimeout(resolve, pollIntervalMs);
         });
     }
 
@@ -433,7 +433,7 @@ async function testFsEndpoint(
 // ============================================================================
 
 async function runAllTests(baseUrl: string): Promise<void> {
-    console.log(`\n${colors.blue}Testing Apify AI Sandbox REST Endpoints${colors.reset}`);
+    console.log(`\n${colors.blue}Testing Apify AI Code Sandbox REST Endpoints${colors.reset}`);
     console.log(`Base URL: ${baseUrl}\n`);
 
     // Health check
@@ -922,7 +922,7 @@ async function runAllTests(baseUrl: string): Promise<void> {
 
 async function main(): Promise<void> {
     console.log('===================================');
-    console.log('🚀 Apify AI Sandbox E2E Platform Test');
+    console.log('🚀 Apify AI Code Sandbox E2E Platform Test');
     console.log('===================================\n');
 
     let runId: string | null = null;
@@ -933,12 +933,10 @@ async function main(): Promise<void> {
         console.log(`${colors.green}ℹ${colors.reset} Step 1: Preparing Actor input with dependencies...`);
 
         const input = {
-            nodeDependencies: {
-                zod: '^3.22.0',
-            },
-            pythonRequirementsTxt: 'numpy>=1.24.0',
+            nodeDependencies: 'zod@^3.22.0',
+            pythonRequirements: 'numpy>=1.24.0',
             envVars: 'TEST_E2E_SECRET=hunter2-do-not-leak',
-            initShellScript: [
+            initBashScript: [
                 '#!/bin/bash',
                 'mkdir -p /sandbox/test-e2e-init',
                 "echo 'E2E test init script executed' > /sandbox/test-e2e-init/status.txt",

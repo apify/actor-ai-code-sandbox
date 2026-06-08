@@ -1,0 +1,60 @@
+import { log } from 'apify';
+
+import { safeParseJson } from './safe-json.js';
+
+/**
+ * Trim entries, drop blanks and non-strings, and de-duplicate while preserving
+ * the original order.
+ */
+const cleanList = (values: unknown[]): string[] => {
+    const out: string[] = [];
+    const seen = new Set<string>();
+    for (const value of values) {
+        if (typeof value !== 'string') {
+            log.warning('skills: skipping non-string entry');
+            continue;
+        }
+        const skill = value.trim();
+        if (!skill || seen.has(skill)) continue;
+        seen.add(skill);
+        out.push(skill);
+    }
+    return out;
+};
+
+const parseJsonArray = (raw: string): string[] => {
+    const parsed = safeParseJson(raw, 'skills', Array.isArray, 'JSON must be an array of skill name strings');
+    return parsed ? cleanList(parsed) : [];
+};
+
+const parseLines = (raw: string): string[] => {
+    const out: string[] = [];
+    for (const rawLine of raw.split(/\r?\n/)) {
+        const line = rawLine.trim();
+        if (!line || line.startsWith('#')) continue;
+        out.push(line);
+    }
+    return out;
+};
+
+/**
+ * Parse the user-supplied `skills` input into a de-duplicated list of skill
+ * identifiers for `installSkills`. Each identifier is passed through unchanged to
+ * the `skills` CLI, which accepts a GitHub `owner/repo` (e.g. `anthropics/skills`)
+ * or a repo URL (e.g. `https://github.com/anthropics/skills`). Accepts either:
+ *  - one skill per line (blank lines and `#` comments ignored), or
+ *  - a JSON array of skill name strings (input starting with `[` or `{` is parsed
+ *    as JSON; any non-array JSON yields no skills).
+ *
+ * Also accepts an actual string array, which task inputs saved while `skills`
+ * was a `stringList` (and programmatic callers) may still send.
+ */
+export const parseSkills = (raw: string | string[] | undefined | null): string[] => {
+    if (!raw) return [];
+    if (Array.isArray(raw)) return cleanList(raw);
+
+    const trimmed = raw.trim();
+    if (!trimmed) return [];
+    const looksLikeJson = trimmed.startsWith('[') || trimmed.startsWith('{');
+    return looksLikeJson ? parseJsonArray(trimmed) : cleanList(parseLines(trimmed));
+};

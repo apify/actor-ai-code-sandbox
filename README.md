@@ -1,4 +1,4 @@
-# 🧪 Apify AI Sandbox
+# 🧪 Apify AI Code Sandbox
 
 A suite of Apify Actors providing secure, containerized environments for AI coding agents.
 

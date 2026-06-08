@@ -34,29 +34,20 @@ else
     echo "⚠️  Apify CLI: not installed"
 fi
 
-# Capture MCP CLI version (optional)
+# Capture mcpc version (optional)
 if mcpc --version > "$VERSION_DIR/mcpc.txt" 2>/dev/null; then
-    echo "✅ MCP CLI: $(cat "$VERSION_DIR/mcpc.txt")"
+    echo "✅ mcpc: $(cat "$VERSION_DIR/mcpc.txt")"
 else
     echo "not installed" > "$VERSION_DIR/mcpc.txt"
-    echo "⚠️  MCP CLI: not installed"
+    echo "⚠️  mcpc: not installed"
 fi
 
-# Capture Claude CLI version (optional)
-if claude --version > "$VERSION_DIR/claude.txt" 2>/dev/null; then
-    echo "✅ Claude: $(cat "$VERSION_DIR/claude.txt")"
-else
-    echo "not installed" > "$VERSION_DIR/claude.txt"
-    echo "⚠️  Claude: not installed"
-fi
-
-# Capture OpenCode CLI version (optional)
-if opencode --version > "$VERSION_DIR/opencode.txt" 2>/dev/null; then
-    echo "✅ OpenCode: $(cat "$VERSION_DIR/opencode.txt")"
-else
-    echo "not installed" > "$VERSION_DIR/opencode.txt"
-    echo "⚠️  OpenCode: not installed"
-fi
+# Claude Code, OpenCode, and Codex are NOT captured here: they are installed
+# lazily on first use (see agent-launchers.sh), so there is nothing to probe at
+# build time. The shell welcome message detects them at runtime instead — it
+# falls back to `<agent> --version` when the cached version file is absent — so
+# it shows the real version once an agent has been installed, and "not installed"
+# before that.
 
 echo ""
 echo "🎉 Version capture complete! Files stored in $VERSION_DIR"

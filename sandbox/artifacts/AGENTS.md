@@ -1,12 +1,12 @@
-# Agent Instructions for Apify AI Sandbox
+# Agent Instructions for Apify AI Code Sandbox
 
-This document contains instructions for AI coding agents working inside the Apify AI Sandbox Actor.
+This document contains instructions for AI coding agents working inside the Apify AI Code Sandbox Actor.
 
 ## Sharing Files and Data with Users
 
 ### 🚨 CRITICAL: Always Generate Signed Public URLs
 
-When sharing data with users, **NEVER return just storage IDs or raw API URLs** — they require authentication.  
+When sharing data with users, **NEVER return just storage IDs or raw API URLs** — they require authentication.
 **ALWAYS generate signed public URLs** that work without authentication.
 
 ### Key-Value Stores (Files & Binary Data)
@@ -143,6 +143,39 @@ mcpc @apify tools-list --json
 ## Model Context Protocol (MCP) Servers
 
 Access Apify platform features and thousands of Actors via `mcpc` tool.
+
+### User-provided MCP Connections (`/sandbox/mcp.json`)
+
+If the user picked **MCP Connectors** in the Actor input (e.g. Slack, Notion, GitHub), the sandbox writes them to `/sandbox/mcp.json` on startup. Each entry is a ready-to-use HTTP MCP proxy, authenticated with the user's credentials server-side:
+
+> **If you are Claude Code, Codex, or OpenCode**, these connectors are already registered as native MCP tools on startup — just call them directly, no `mcpc connect` needed. The steps below are for the `mcpc` CLI or any other client.
+
+```bash
+cat /sandbox/mcp.json
+# {
+#   "mcpServers": {
+#     "apify": {                                       # always present (hosted Apify MCP)
+#       "url": "https://mcp.apify.com",
+#       "headers": { "Authorization": "Bearer ${APIFY_TOKEN}" }
+#     },
+#     "conn_abc123": {                                 # one per user-picked Connector
+#       "url": "https://api.apify.com/v2/mcp-proxy/conn_abc123",
+#       "headers": { "Authorization": "Bearer ${APIFY_TOKEN}" }
+#     }
+#   }
+# }
+```
+
+`/sandbox/mcp.json` always contains the hosted Apify MCP server under the `apify` key, plus one entry per user-picked Connector.
+
+To connect with `mcpc`, read a server entry from the file and pass it to `mcpc connect`:
+
+```bash
+# Connect to the first user-provided Connector (skipping the always-on "apify" entry) as @user1
+URL=$(jq -r '.mcpServers | to_entries | map(select(.key != "apify"))[0].value.url // empty' /sandbox/mcp.json)
+mcpc connect "$URL" @user1 --header "Authorization: Bearer $APIFY_TOKEN"
+mcpc @user1 tools-list --json
+```
 
 ### 🚨 CRITICAL: Connect to Apify MCP Server First
 
@@ -524,7 +557,7 @@ cat /sandbox/py/report.pdf | apify actor set-value report.pdf --content-type app
 
 ## Resources
 
-- [Apify CLI Documentation](https://docs.apify.com/cli)
-- [Apify MCP CLI Repository](https://github.com/apify/mcp-cli)
+- [Apify CLI documentation](https://docs.apify.com/cli)
+- [mcpc MCP CLI repository](https://github.com/apify/mcpc)
 - [Key-Value Store API](https://docs.apify.com/api/v2#/reference/key-value-stores)
 - [Dataset API](https://docs.apify.com/api/v2#/reference/datasets)

@@ -33,9 +33,22 @@ export const PYTHON_VENV_DIR = '/sandbox/py/venv';
 export const PYTHON_BIN_DIR = '/sandbox/py/venv/bin';
 
 /**
+ * Default idle timeout in seconds (15 minutes). The container shuts down
+ * automatically after this much inactivity unless overridden via the
+ * `idleTimeoutSecs` input. Set to 0 to disable.
+ */
+export const DEFAULT_IDLE_TIMEOUT_SECS = 900;
+
+/**
  * Init script execution timeout (5 minutes)
  */
-export const INIT_SCRIPT_TIMEOUT = 300000;
+export const INIT_SCRIPT_TIMEOUT_MS = 300000;
+
+/**
+ * How often to log a heartbeat while the init script is running (30 seconds),
+ * so long, quiet steps (e.g. `npm install`) don't look like a hang.
+ */
+export const INIT_SCRIPT_HEARTBEAT_INTERVAL_MS = 30000;
 
 /**
  * Migration persistence constants
@@ -75,6 +88,6 @@ export const MIGRATION_EXCLUDED_PATHS = [
 ];
 
 /**
- * Proxy mappings configuration file path
+ * Bridges configuration file path
  */
-export const PROXY_CONFIG_PATH = '/sandbox/.proxy-mappings.json';
+export const BRIDGES_PATH = '/sandbox/.bridges.json';
