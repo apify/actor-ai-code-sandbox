@@ -220,7 +220,7 @@ RUN mkdir -p /root/.codex && \
         'sandbox_mode = "danger-full-access"' \
         '' \
         '[model_providers.apify-openrouter]' \
-        'name = "apify/openrouter Actor"' \
+        'name = "apify/openrouter"' \
         'base_url = "https://openrouter.apify.actor/api/v1"' \
         'env_key = "APIFY_TOKEN"' \
         'requires_openai_auth = false' \
