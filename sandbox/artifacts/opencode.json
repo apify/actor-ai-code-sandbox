@@ -4,7 +4,7 @@
     "provider": {
         "apify-openrouter": {
             "npm": "@ai-sdk/openai-compatible",
-            "name": "Apify OpenRouter Proxy",
+            "name": "apify/openrouter Actor",
             "options": {
                 "baseURL": "https://openrouter.apify.actor/api/v1",
                 "apiKey": "dummy-api-key",
