@@ -7,7 +7,7 @@ import type { Readable } from 'node:stream';
 import { promisify } from 'node:util';
 
 import { log } from 'apify';
-import archiver from 'archiver';
+import { ZipArchive } from 'archiver';
 import mime from 'mime-types';
 
 import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
@@ -709,7 +709,7 @@ export const createZipArchive = async (
         }
 
         // Create archive
-        const archive = archiver('zip', {
+        const archive = new ZipArchive({
             zlib: { level: 6 }, // Compression level
         });
 

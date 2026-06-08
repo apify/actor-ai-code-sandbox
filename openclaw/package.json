@@ -11,11 +11,11 @@
     "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
-    "apify": "^3.4.2"
+    "apify": "^3.7.2"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "tsx": "^4.19.2",
-    "typescript": "^5.7.3"
+    "@types/node": "^25.9.2",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
   }
 }

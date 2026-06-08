@@ -7,33 +7,33 @@
         "node": ">=20.0.0"
     },
     "dependencies": {
-        "@modelcontextprotocol/sdk": "^1.27.1",
-        "@types/archiver": "^7.0.0",
+        "@modelcontextprotocol/sdk": "^1.29.0",
+        "@types/archiver": "^8.0.0",
         "@types/mime-types": "^3.0.1",
-        "apify": "^3.7.0",
-        "archiver": "^7.0.1",
-        "ejs": "^5.0.1",
+        "apify": "^3.7.2",
+        "archiver": "^8.0.0",
+        "ejs": "^6.0.1",
         "express": "^5.2.1",
         "http-proxy": "^1.18.1",
         "mime-types": "^3.0.2",
         "node-html-markdown": "^2.0.0",
         "node-html-parser": "^7.1.0",
-        "zod": "^4.3.6"
+        "zod": "^4.4.3"
     },
     "devDependencies": {
-        "@apify/eslint-config": "^1.1.0",
-        "@apify/tsconfig": "^0.1.1",
+        "@apify/eslint-config": "^2.0.6",
+        "@apify/tsconfig": "^0.1.2",
         "@types/ejs": "^3.1.5",
         "@types/express": "^5.0.6",
         "@types/http-proxy": "^1.17.17",
-        "@types/node": "^25.5.0",
-        "eslint": "^9.29.0",
+        "@types/node": "^25.9.2",
+        "eslint": "^9.39.4",
         "eslint-config-prettier": "^10.1.8",
-        "globals": "^17.4.0",
-        "prettier": "^3.8.1",
-        "tsx": "^4.21.0",
-        "typescript": "^5.9.3",
-        "typescript-eslint": "^8.57.0"
+        "globals": "^17.6.0",
+        "prettier": "^3.8.3",
+        "tsx": "^4.22.4",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.61.0"
     },
     "scripts": {
         "start": "npm run start:dev",
