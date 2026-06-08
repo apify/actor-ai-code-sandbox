@@ -88,6 +88,6 @@ export const MIGRATION_EXCLUDED_PATHS = [
 ];
 
 /**
- * Proxy mappings configuration file path
+ * Bridges configuration file path
  */
-export const PROXY_CONFIG_PATH = '/sandbox/.proxy-mappings.json';
+export const BRIDGES_PATH = '/sandbox/.bridges.json';

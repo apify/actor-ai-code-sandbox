@@ -8,7 +8,7 @@ Isolated sandbox for running AI coding operations in a containerized environment
 - **🤖 AI agent development:** Provide isolated and managed development environments where AI agents can code, test, and execute operations securely
 - **📦 Sandboxed operations:** Execute system commands, file operations, and custom scripts in a contained environment
 - **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting
-- **🔀 Dynamic reverse proxy:** Expose local services (web servers, APIs, dashboards) running inside the container to external URL paths - accessible from outside the container
+- **🔀 Bridges:** Expose local services (web servers, APIs, dashboards) running inside the container to external URL paths - accessible from outside the container
 - **🔗 Apify Actor orchestration:** Agents can access the limited permissions Apify token (available as `APIFY_TOKEN` env var) to run other [limited permissions Actors](https://docs.apify.com/platform/actors/development/permissions), process or analyze their output, and build complex data pipelines by combining results from multiple Actors
 
 ## Quickstart
@@ -68,29 +68,29 @@ Available endpoints (all URLs come from the run logs/landing page):
     - Markdown documentation for LLMs (same usage info as landing page)
     - Returns (200): Plain text Markdown with all endpoint documentation
 
-#### Dynamic proxy endpoints
+#### Bridge endpoints
 
-Expose local services running inside the container to external URL paths. This allows you to start a web server (e.g., on port 3000) inside the sandbox and access it from outside via a mapped path.
+Expose local services running inside the container to external URL paths. This allows you to start a web server (e.g., on port 3000) inside the sandbox and access it from outside via a bridge.
 
-- `GET /proxy-config`
-    - List current proxy mappings
-    - Returns (200): `{ mappings: [{ path: string, target: string }] }`
+- `GET /bridges`
+    - List current bridges
+    - Returns (200): `{ bridges: [{ path: string, target: string }] }`
 
-- `PUT /proxy-config`
-    - Replace all proxy mappings
-    - Body: `{ mappings: [{ path: "/myapp", target: "http://127.0.0.1:3000/myapp" }] }`
-    - Returns (200): `{ success: true, mappings: [...] }`
+- `PUT /bridges`
+    - Replace all bridges
+    - Body: `{ bridges: [{ path: "/myapp", target: "http://127.0.0.1:3000/myapp" }] }`
+    - Returns (200): `{ success: true, bridges: [...] }`
 
-- `POST /proxy-config`
-    - Add a single proxy mapping
+- `POST /bridges`
+    - Add a single bridge
     - Body: `{ path: "/myapp", target: "http://127.0.0.1:3000/myapp" }`
-    - Returns (200): `{ success: true, mappings: [...] }`
+    - Returns (200): `{ success: true, bridges: [...] }`
 
-- `DELETE /proxy-config/{path}`
-    - Remove a proxy mapping by path
-    - Returns (200): `{ success: true, removed: string, mappings: [...] }`
+- `DELETE /bridges/{path}`
+    - Remove a bridge by path
+    - Returns (200): `{ success: true, removed: string, bridges: [...] }`
 
-Once configured, all HTTP requests and WebSocket connections to the mapped path (e.g., `/myapp/*`) are transparently proxied to the local service. Mappings can also be configured via Actor input or by writing to `/sandbox/.proxy-mappings.json`.
+Once configured, all HTTP requests and WebSocket connections to the bridge (e.g., `/myapp/*`) are transparently forwarded to the local service. Bridges can also be configured via Actor input or by writing to `/sandbox/.bridges.json`.
 
 **Health status:**
 
@@ -300,7 +300,7 @@ print(resp.json())
 
 Open the interactive shell terminal URL from the run logs (also linked on the landing page) to work directly in the browser.
 
-### Dynamic reverse proxy
+### Bridges
 
 Expose local services running inside the container to external URL paths. Start a web server inside the sandbox and access it from outside the container.
 
@@ -310,8 +310,8 @@ Expose local services running inside the container to external URL paths. Start 
 # 1. Start a local web server inside the sandbox
 npx http-server /sandbox/myapp -p 8080
 
-# 2. Add a proxy mapping (via REST API)
-curl -X POST https://UNIQUE-ID.runs.apify.net/proxy-config \
+# 2. Add a bridge (via REST API)
+curl -X POST https://UNIQUE-ID.runs.apify.net/bridges \
   -H "Content-Type: application/json" \
   -d '{"path": "/myapp", "target": "http://127.0.0.1:8080"}'
 
@@ -321,7 +321,7 @@ curl -X POST https://UNIQUE-ID.runs.apify.net/proxy-config \
 
 **Via Actor input:**
 
-Provide proxy mappings at startup via the `proxyMappings` input parameter:
+Provide bridges at startup via the `bridges` input parameter:
 
 ```json
 [{"path": "/myapp", "target": "http://127.0.0.1:3000/myapp"}]
@@ -329,7 +329,7 @@ Provide proxy mappings at startup via the `proxyMappings` input parameter:
 
 **Via config file:**
 
-Mappings can also be modified by writing JSON to `/sandbox/.proxy-mappings.json`. Changes are detected automatically via file watching.
+Bridges can also be modified by writing JSON to `/sandbox/.bridges.json`. Changes are detected automatically via file watching.
 
 **Features:**
 - Supports both HTTP and WebSocket connections

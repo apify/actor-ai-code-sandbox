@@ -50,7 +50,7 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">📡</span> Connect with MCP</h2>
+            <h2><span class="section-icon">📡</span> Connect with MCP <code class="section-path">/mcp</code></h2>
             <h3 class="example-label">MCP server URL (no authentication required)</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
@@ -68,7 +68,7 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">⚡</span> Code execution API</h2>
+            <h2><span class="section-icon">⚡</span> Code execution API <code class="section-path">/exec</code></h2>
 
             <h3 class="example-label">Run Bash command</h3>
             <div class="code-block-wrapper">
@@ -107,7 +107,7 @@
             </div>
 
             <h3 class="example-label">Working directories</h3>
-            <ul class="list">
+            <ul class="bullets">
                 <li>Shell commands: <code>/sandbox</code> (default)</li>
                 <li>JavaScript/TypeScript: <code>/sandbox/js-ts</code> (default)</li>
                 <li>Python: <code>/sandbox/py</code> (default)</li>
@@ -116,7 +116,7 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">📁</span> Filesystem API</h2>
+            <h2><span class="section-icon">📁</span> Filesystem API <code class="section-path">/fs</code></h2>
             <p class="muted">Direct file operations using HTTP methods. All paths relative to <code>/sandbox</code>.</p>
 
             <h3 class="example-label">Read file or list directory</h3>
@@ -160,36 +160,36 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">🔀</span> Proxy mappings</h2>
-            <p class="muted">Expose web servers that you start <em>inside</em> the sandbox (your own dev server, a TUI gateway, etc.) at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards <code>&lt;container-url&gt;/&lt;path&gt;</code> to <code>http://127.0.0.1:&lt;port&gt;/...</code> over HTTP and WebSocket. Changes apply immediately and persist across restarts.</p>
+            <h2><span class="section-icon">🔀</span> Bridges <code class="section-path">/bridges</code></h2>
+            <p class="muted">Expose web servers that you start <em>inside</em> the sandbox (your own dev server, a TUI gateway, etc.) at a public URL path on this container, so they're reachable from the browser or other services. Each bridge forwards <code><%= serverUrl %>/&lt;path&gt;</code> to <code>http://127.0.0.1:&lt;port&gt;/...</code> over HTTP and WebSocket. Changes apply immediately and persist across restarts.</p>
 
-            <div data-no-md id="proxyMappingsList"></div>
+            <div data-no-md id="bridgesList"></div>
 
-            <div data-no-md class="proxy-form">
+            <div data-no-md class="bridge-form">
                 <div style="flex: 1; min-width: 130px;">
-                    <label class="field-label" for="newProxyPath">Exposed path</label>
-                    <input class="input" type="text" id="newProxyPath" placeholder="/openclaw">
+                    <label class="field-label" for="newBridgePath">Exposed path</label>
+                    <input class="input" type="text" id="newBridgePath" placeholder="/openclaw">
                 </div>
                 <div style="flex: 2; min-width: 240px;">
-                    <label class="field-label" for="newProxyTarget">Local service URL</label>
-                    <input class="input" type="text" id="newProxyTarget" placeholder="http://127.0.0.1:18789/openclaw">
+                    <label class="field-label" for="newBridgeTarget">Local service URL</label>
+                    <input class="input" type="text" id="newBridgeTarget" placeholder="http://127.0.0.1:18789/openclaw">
                 </div>
-                <button class="button" onclick="addProxyMapping()">Add mapping</button>
+                <button class="button" onclick="addBridge()">Add bridge</button>
             </div>
 
             <h3 class="example-label">API examples</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block" data-lang="bash"><span class="hl-comment"># Get current mappings</span>
-<span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/proxy-config</span>
+                <pre class="code-block" data-lang="bash"><span class="hl-comment"># List bridges</span>
+<span class="hl-curl">curl</span> <span class="hl-url"><%= serverUrl %>/bridges</span>
 
-<span class="hl-comment"># Add a mapping</span>
-<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/proxy-config</span> \
+<span class="hl-comment"># Add a bridge</span>
+<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/bridges</span> \
   <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">path</span>": "/openclaw", "<span class="hl-key">target</span>": "http://127.0.0.1:18789/openclaw"}'</span>
 
-<span class="hl-comment"># Remove a mapping</span>
-<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/proxy-config/openclaw</span></pre>
+<span class="hl-comment"># Remove a bridge</span>
+<span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/bridges/openclaw</span></pre>
             </div>
         </section>
     </main>
@@ -280,39 +280,39 @@
         // Tick the idle-shutdown countdown locally between health syncs
         setInterval(renderCountdown, 1000);
 
-        // Proxy Mappings Management
-        async function loadProxyMappings() {
+        // Bridges management
+        async function loadBridges() {
             try {
-                const response = await fetch('/proxy-config');
+                const response = await fetch('/bridges');
                 const data = await response.json();
-                renderProxyMappings(data.mappings || []);
+                renderBridges(data.bridges || []);
             } catch (error) {
-                console.error('Failed to load proxy mappings:', error);
+                console.error('Failed to load bridges:', error);
             }
         }
 
-        function renderProxyMappings(mappings) {
-            const container = document.getElementById('proxyMappingsList');
+        function renderBridges(bridges) {
+            const container = document.getElementById('bridgesList');
 
-            if (mappings.length === 0) {
-                container.innerHTML = '<p class="proxy-empty">No proxy mappings configured</p>';
+            if (bridges.length === 0) {
+                container.innerHTML = '<p class="bridge-empty">No bridges configured</p>';
                 return;
             }
 
-            container.innerHTML = mappings.map(m => `
-                <div class="proxy-row">
-                    <code class="proxy-path">${m.path}</code>
+            container.innerHTML = bridges.map(b => `
+                <div class="bridge-row">
+                    <code class="bridge-path">${b.path}</code>
                     <span class="tag">→</span>
-                    <code class="proxy-target">${m.target}</code>
-                    <a href="${m.path}" target="_blank" class="proxy-open">Open</a>
-                    <button class="btn-danger" onclick="deleteProxyMapping('${m.path}')">Remove</button>
+                    <code class="bridge-target">${b.target}</code>
+                    <a href="${b.path}" target="_blank" class="bridge-open">Open</a>
+                    <button class="btn-danger" onclick="deleteBridge('${b.path}')">Remove</button>
                 </div>
             `).join('');
         }
 
-        async function addProxyMapping() {
-            const pathInput = document.getElementById('newProxyPath');
-            const targetInput = document.getElementById('newProxyTarget');
+        async function addBridge() {
+            const pathInput = document.getElementById('newBridgePath');
+            const targetInput = document.getElementById('newBridgeTarget');
 
             const path = pathInput.value.trim();
             const target = targetInput.value.trim();
@@ -323,7 +323,7 @@
             }
 
             try {
-                const response = await fetch('/proxy-config', {
+                const response = await fetch('/bridges', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ path, target })
@@ -331,43 +331,43 @@
 
                 if (response.ok) {
                     const data = await response.json();
-                    renderProxyMappings(data.mappings);
+                    renderBridges(data.bridges);
                     pathInput.value = '';
                     targetInput.value = '';
                 } else {
                     const error = await response.json();
-                    alert('Failed to add mapping: ' + error.error);
+                    alert('Failed to add bridge: ' + error.error);
                 }
             } catch (error) {
-                alert('Failed to add mapping: ' + error.message);
+                alert('Failed to add bridge: ' + error.message);
             }
         }
 
-        async function deleteProxyMapping(path) {
-            if (!confirm(`Remove proxy mapping for ${path}?`)) return;
+        async function deleteBridge(path) {
+            if (!confirm(`Remove bridge for ${path}?`)) return;
 
             try {
-                const response = await fetch('/proxy-config' + path, {
+                const response = await fetch('/bridges' + path, {
                     method: 'DELETE'
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    renderProxyMappings(data.mappings);
+                    renderBridges(data.bridges);
                 } else {
                     const error = await response.json();
-                    alert('Failed to remove mapping: ' + error.error);
+                    alert('Failed to remove bridge: ' + error.error);
                 }
             } catch (error) {
-                alert('Failed to remove mapping: ' + error.message);
+                alert('Failed to remove bridge: ' + error.message);
             }
         }
 
-        // Load proxy mappings on page load
-        loadProxyMappings();
+        // Load bridges on page load
+        loadBridges();
 
-        // Refresh proxy mappings every 10 seconds to catch file-based changes
-        setInterval(loadProxyMappings, 10000);
+        // Refresh bridges every 10 seconds to catch file-based changes
+        setInterval(loadBridges, 10000);
     </script>
 </body>
 </html>
