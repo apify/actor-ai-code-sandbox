@@ -21,16 +21,17 @@
                         <span class="status-icon">⏻</span>
                         <span id="shutdownText" class="countdown"></span>
                     </div>
-                    <%# The status badge is deliberately NOT marked data-no-md: it is kept in %>
-                    <%# /llms.txt purely so the /health URL is still surfaced to LLMs now that %>
-                    <%# the visible "service status" sentence has been removed. %>
-                    <a class="status-badge loading" id="statusBadge" href="<%= serverUrl %>/health" target="_blank" rel="noopener noreferrer"><span class="status-dot"></span><span id="statusText">Checking...</span></a>
+                    <%# The status-badge link is kept in /llms.txt so the /health URL stays %>
+                    <%# discoverable by LLMs. The live "Checking..." text is page-only %>
+                    <%# (data-no-md, swapped out by JS); the Markdown shows a static %>
+                    <%# "Health check" label via the .md-only span instead. %>
+                    <a class="status-badge loading" id="statusBadge" href="<%= serverUrl %>/health" target="_blank" rel="noopener noreferrer"><span class="status-dot"></span><span id="statusText" data-no-md>Checking...</span><span class="md-only">Health check</span></a>
                     <% if (isLocalMode) { %>
                         <div data-no-md class="badge"><%= modeLabel %></div>
                     <% } %>
                 </div>
             </div>
-            <p class="lead">An Actor for secure execution of arbitrary code. Connect using MCP, REST API, or interactive shell.<% if (idleTimeoutSecs > 0) { %> The Actor shuts down automatically after <%= idleTimeoutLabel %> of inactivity.<% } %></p>
+            <p class="lead">An <a href="https://apify.com/apify/ai-code-sandbox" target="_blank" rel="noopener noreferrer">Actor</a> for secure execution of arbitrary code. Connect using MCP, REST API, or interactive shell.<% if (idleTimeoutSecs > 0) { %> The Actor shuts down automatically after <%= idleTimeoutLabel %> of inactivity.<% } %></p>
         </header>
 
         <section class="card">
