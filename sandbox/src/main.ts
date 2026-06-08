@@ -236,6 +236,9 @@ app.use((req, _res, next) => {
         });
     }
 
+    // Any non-health request — including doc fetches like /llms.txt — counts as
+    // activity and pushes back the idle-shutdown timer. Only /health and the
+    // readiness probe are excluded, since they fire automatically.
     if (!isHealth && !isProbe) {
         lastActivityAt = Date.now();
     }

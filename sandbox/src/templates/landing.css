@@ -379,6 +379,11 @@ a.status-badge:hover {
     font-size: 12px;
     line-height: 1;
 }
+/* Rendered only in the generated /llms.txt Markdown (where CSS doesn't apply);
+   hidden in the live page, which shows the JS-driven status text instead. */
+.md-only {
+    display: none;
+}
 /* Keep countdown digits fixed-width so the badge doesn't jiggle as it ticks */
 .countdown {
     font-variant-numeric: tabular-nums;
