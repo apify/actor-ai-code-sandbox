@@ -13,6 +13,7 @@ import {
     PYTHON_CODE_DIR,
     SANDBOX_DIR,
 } from './consts.js';
+import { setStatusMessage } from './status.js';
 
 const execAsync = promisify(exec);
 
@@ -169,6 +170,7 @@ export const installNodeLibraries = async (
 
     const packageSpecs = Object.entries(dependencies).map(([pkg, version]) => `${pkg}@${version}`);
     log.info('Installing Node.js dependencies', { count: packageSpecs.length, packages: packageSpecs });
+    await setStatusMessage('Installing Node.js dependencies');
 
     const installed: string[] = [];
     const failed: { library: string; error: string }[] = [];
@@ -232,6 +234,7 @@ export const installPythonLibraries = async (
     }
 
     log.info('Installing Python requirements', { count: requirements.length, requirements });
+    await setStatusMessage('Installing Python dependencies');
 
     const installed: string[] = [];
     const failed: { library: string; error: string }[] = [];

@@ -17,6 +17,7 @@ import { configureAgentMcpServers } from './mcp-agent-config.js';
 import { writeMcpConfig } from './mcp-connections.js';
 import { translateLaunchParam } from './shell-launch.js';
 import { parseNodeDependencies } from './node-deps.js';
+import { setStatusMessage } from './status.js';
 import {
     appendFile,
     createDirectory,
@@ -151,6 +152,7 @@ if (!setupResult.success) {
 // Execute init script if provided and not empty
 if (input?.initBashScript && input.initBashScript.trim().length > 0) {
     log.info('Executing init script...');
+    await setStatusMessage('Running setup script');
     const initResult = await executeInitScript(input.initBashScript);
     if (initResult.exitCode !== 0) {
         // The output and failure summary were already streamed by executeInitScript;
@@ -212,6 +214,7 @@ if (!isLocalMode) {
 initializationComplete = true;
 lastActivityAt = Date.now();
 log.info('Actor startup complete - ready for requests');
+await setStatusMessage('Sandbox is live');
 
 // Initialize bridges
 initializeBridges(input?.bridges);
@@ -1382,6 +1385,7 @@ server.listen(port, () => {
             if (idleTimeMs > idleTimeoutSecs * 1000) {
                 const message = `Sandbox shut down after ${Math.round(idleTimeoutSecs)} seconds of inactivity.`;
                 log.warning(message);
+                await setStatusMessage('Sandbox is shutting down');
                 await Actor.exit({ statusMessage: message });
             }
         }, 30000); // Check every 30 seconds
