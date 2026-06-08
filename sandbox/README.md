@@ -4,12 +4,12 @@ Isolated sandbox for running AI coding operations in a containerized environment
 
 ## Use cases
 
-- **🔒 Execute untrusted code safely:** Run potentially unsafe code in an isolated container with controlled resources and security boundaries
-- **🤖 AI agent development:** Provide isolated and managed development environments where AI agents can code, test, and execute operations securely
-- **📦 Sandboxed operations:** Execute system commands, file operations, and custom scripts in a contained environment
-- **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting
-- **🔀 Dynamic reverse proxy:** Expose local services (web servers, APIs, dashboards) running inside the container to external URL paths - accessible from outside the container
-- **🔗 Apify Actor orchestration:** Agents can access the limited permissions Apify token (available as `APIFY_TOKEN` env var) to run other [limited permissions Actors](https://docs.apify.com/platform/actors/development/permissions), process or analyze their output, and build complex data pipelines by combining results from multiple Actors
+- **🔒 Execute untrusted code safely:** Run potentially unsafe code in an isolated container with controlled resources and security boundaries 🛡️
+- **🤖 AI agent development:** Provide isolated and managed development environments where AI agents can code, test, and execute operations securely 🛠️
+- **📦 Sandboxed operations:** Execute system commands, file operations, and custom scripts in a contained environment ⚙️
+- **🖥️ Interactive debugging:** Access the sandbox via browser-based shell terminal for real-time exploration and troubleshooting 🐛
+- **🔀 Dynamic reverse proxy:** Expose local services (web servers, APIs, dashboards) running inside the container to external URL paths - accessible from outside the container 🌐
+- **🔗 Apify Actor orchestration:** Agents can access the limited permissions Apify token (available as `APIFY_TOKEN` env var) to run other [limited permissions Actors](https://docs.apify.com/platform/actors/development/permissions), process or analyze their output, and build complex data pipelines by combining results from multiple Actors 🎭
 
 ## Quickstart
 
