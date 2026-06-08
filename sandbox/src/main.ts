@@ -1180,48 +1180,15 @@ server.listen(port, () => {
     console.log(`   GET ${serverUrl}/`);
     console.log('       Connection details, quick links, and endpoint URLs\n');
 
+    // LLMs.txt documentation endpoint
+    console.log('📄 LLMs documentation:');
+    console.log(`   GET ${serverUrl}/llms.txt`);
+    console.log('       Markdown reference of all endpoints for LLMs\n');
+
     // Shell terminal endpoint
+    console.log('🖥️  Shell terminal:');
     console.log(`   GET ${serverUrl}/shell/`);
-    console.log(`       Interactive shell terminal\n`);
-
-    // MCP Server URL
-    console.log('📡 MCP Server Endpoint:');
-    console.log(`        ${serverUrl}/mcp\n`);
-
-    // REST API Endpoints
-    console.log('🔧 Available REST Endpoints:');
-    console.log(`   POST ${serverUrl}/exec`);
-    console.log(`       Execute shell commands or code (JavaScript, TypeScript, Python)`);
-    console.log(`       Body: { command: string, language?: string, cwd?: string, timeoutSecs?: number }`);
-    console.log(`       Languages: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)\n`);
-
-    console.log(`   GET ${serverUrl}/health`);
-    console.log(`       Health check\n`);
-
-    // RESTful Filesystem Endpoints
-    console.log('🗂️  RESTful Filesystem Endpoints:');
-    console.log(`   GET ${serverUrl}/fs/{path}`);
-    console.log(`       Read file or list directory (add ?download=1 to download)`);
-    console.log(`       Example: GET /fs/app/output/log.txt\n`);
-
-    console.log(`   PUT ${serverUrl}/fs/{path}`);
-    console.log(`       Write/replace file with request body`);
-    console.log(`       Example: PUT /fs/app/config.json\n`);
-
-    console.log(`   POST ${serverUrl}/fs/{path}?mkdir=1`);
-    console.log(`       Create directory`);
-    console.log(`       Example: POST /fs/app/data?mkdir=1\n`);
-
-    console.log(`   POST ${serverUrl}/fs/{path}?append=1`);
-    console.log(`       Append to file with request body`);
-    console.log(`       Example: POST /fs/app/log.txt?append=1\n`);
-
-    console.log(`   DELETE ${serverUrl}/fs/{path}`);
-    console.log(`       Delete file or directory (add ?recursive=1 for non-empty dirs)`);
-    console.log(`       Example: DELETE /fs/app/temp?recursive=1\n`);
-
-    console.log(`   HEAD ${serverUrl}/fs/{path}`);
-    console.log(`       Get file/directory metadata in headers\n`);
+    console.log('       Interactive shell terminal\n');
 
     console.log('=====================================\n');
 
