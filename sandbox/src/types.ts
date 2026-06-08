@@ -3,12 +3,13 @@
  */
 
 /**
- * Proxy mapping configuration for routing requests to local servers
+ * A bridge exposes a local server (running inside the sandbox) at a public
+ * URL path on the container.
  */
-export interface ProxyMapping {
+export interface Bridge {
     /** Exposed URL path on the container (e.g., /openclaw) */
     path: string;
-    /** Full URL of the local service to proxy to (e.g., http://127.0.0.1:18789/openclaw) */
+    /** Full URL of the local service to forward to (e.g., http://127.0.0.1:18789/openclaw) */
     target: string;
 }
 
@@ -56,11 +57,11 @@ export interface ActorInput {
     idleTimeoutSecs?: number;
 
     /**
-     * Proxy mappings for routing requests to local servers
-     * Maps exposed paths to local service URLs
+     * Bridges exposing local servers at public URL paths on the container.
+     * Maps exposed paths to local service URLs.
      * Example: [{ "path": "/openclaw", "target": "http://127.0.0.1:18789/openclaw" }]
      */
-    proxyMappings?: ProxyMapping[];
+    bridges?: Bridge[];
 
     /**
      * MCP Connector IDs the Actor can use. At runtime the platform exposes

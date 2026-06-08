@@ -31,13 +31,13 @@ import {
 } from './operations.js';
 import { initializePersistence, restoreMigrationState, saveMigrationState } from './persistence.js';
 import {
-    addProxyMapping,
-    getProxyMappings,
-    initializeProxyConfig,
-    onMappingsChange,
-    removeProxyMapping,
-    saveProxyConfig,
-} from './proxy-config.js';
+    addBridge,
+    getBridges,
+    initializeBridges,
+    onBridgesChange,
+    removeBridge,
+    saveBridges,
+} from './bridges.js';
 import { parseSkills } from './skills.js';
 import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
@@ -49,7 +49,7 @@ import {
     nextTtydRestartDelayMs,
     TTYD_RESTART_MIN_MS,
 } from './ttyd.js';
-import type { ActorInput, ProxyMapping } from './types.js';
+import type { ActorInput, Bridge } from './types.js';
 
 // Track initialization state
 let initializationComplete = false;
@@ -213,8 +213,8 @@ initializationComplete = true;
 lastActivityAt = Date.now();
 log.info('Actor startup complete - ready for requests');
 
-// Initialize proxy configuration
-initializeProxyConfig(input?.proxyMappings);
+// Initialize bridges
+initializeBridges(input?.bridges);
 
 // Create Express app
 const app = express();
@@ -677,53 +677,53 @@ app.get('/llms.txt', (_req: Request, res: Response) => {
 });
 
 // ============================================================================
-// Proxy Mappings Configuration Endpoints
+// Bridges configuration endpoints
 // ============================================================================
 
-// GET /proxy-config - Get current proxy mappings
-app.get('/proxy-config', (_req: Request, res: Response) => {
+// GET /bridges - Get current bridges
+app.get('/bridges', (_req: Request, res: Response) => {
     try {
-        const mappings = getProxyMappings();
-        res.json({ mappings });
+        const bridges = getBridges();
+        res.json({ bridges });
     } catch (error) {
-        log.error('Failed to get proxy config', { error: (error as Error).message });
+        log.error('Failed to get bridges', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
 
-// PUT /proxy-config - Replace all proxy mappings
-app.put('/proxy-config', (req: Request, res: Response) => {
+// PUT /bridges - Replace all bridges
+app.put('/bridges', (req: Request, res: Response) => {
     try {
-        const { mappings } = req.body;
+        const { bridges } = req.body;
 
-        if (!Array.isArray(mappings)) {
-            res.status(400).json({ error: 'mappings must be an array' });
+        if (!Array.isArray(bridges)) {
+            res.status(400).json({ error: 'bridges must be an array' });
             return;
         }
 
-        // Validate each mapping
-        for (const mapping of mappings) {
-            if (!mapping.path || typeof mapping.path !== 'string') {
-                res.status(400).json({ error: 'Each mapping must have a path string' });
+        // Validate each bridge
+        for (const bridge of bridges) {
+            if (!bridge.path || typeof bridge.path !== 'string') {
+                res.status(400).json({ error: 'Each bridge must have a path string' });
                 return;
             }
-            if (!mapping.target || typeof mapping.target !== 'string') {
-                res.status(400).json({ error: 'Each mapping must have a target string (full URL like http://127.0.0.1:3000/myapp)' });
+            if (!bridge.target || typeof bridge.target !== 'string') {
+                res.status(400).json({ error: 'Each bridge must have a target string (full URL like http://127.0.0.1:3000/myapp)' });
                 return;
             }
         }
 
-        saveProxyConfig(mappings);
-        log.info('Proxy config updated via API', { count: mappings.length });
-        res.json({ success: true, mappings: getProxyMappings() });
+        saveBridges(bridges);
+        log.info('Bridges updated via API', { count: bridges.length });
+        res.json({ success: true, bridges: getBridges() });
     } catch (error) {
-        log.error('Failed to update proxy config', { error: (error as Error).message });
+        log.error('Failed to update bridges', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
 
-// POST /proxy-config - Add a single proxy mapping
-app.post('/proxy-config', (req: Request, res: Response) => {
+// POST /bridges - Add a single bridge
+app.post('/bridges', (req: Request, res: Response) => {
     try {
         const { path, target } = req.body;
 
@@ -736,29 +736,29 @@ app.post('/proxy-config', (req: Request, res: Response) => {
             return;
         }
 
-        addProxyMapping({ path, target });
-        log.info('Proxy mapping added via API', { path, target });
-        res.json({ success: true, mappings: getProxyMappings() });
+        addBridge({ path, target });
+        log.info('Bridge added via API', { path, target });
+        res.json({ success: true, bridges: getBridges() });
     } catch (error) {
-        log.error('Failed to add proxy mapping', { error: (error as Error).message });
+        log.error('Failed to add bridge', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
 
-// DELETE /proxy-config/:path - Remove a proxy mapping
-app.delete('/proxy-config/*path', (req: Request, res: Response) => {
+// DELETE /bridges/:path - Remove a bridge
+app.delete('/bridges/*path', (req: Request, res: Response) => {
     try {
         const pathToRemove = `/${  String(req.params.path || '')}`;
 
-        const removed = removeProxyMapping(pathToRemove);
+        const removed = removeBridge(pathToRemove);
         if (removed) {
-            log.info('Proxy mapping removed via API', { path: pathToRemove });
-            res.json({ success: true, removed: pathToRemove, mappings: getProxyMappings() });
+            log.info('Bridge removed via API', { path: pathToRemove });
+            res.json({ success: true, removed: pathToRemove, bridges: getBridges() });
         } else {
-            res.status(404).json({ error: 'Mapping not found', path: pathToRemove });
+            res.status(404).json({ error: 'Bridge not found', path: pathToRemove });
         }
     } catch (error) {
-        log.error('Failed to remove proxy mapping', { error: (error as Error).message });
+        log.error('Failed to remove bridge', { error: (error as Error).message });
         res.status(500).json({ error: (error as Error).message });
     }
 });
@@ -1077,26 +1077,26 @@ server.on('upgrade', (req, socket, head) => {
 
         wsProxy.ws(req, socket as Duplex, head);
     } else {
-        // Check dynamic proxy mappings
-        let matchedMapping: ProxyMapping | null = null;
+        // Check bridges
+        let matchedBridge: Bridge | null = null;
         let matchedPath = '';
 
         const reqPath = req.url || '/';
         // Extract just the path without query string for matching
         const pathOnly = reqPath.split('?')[0];
 
-        for (const mapping of getProxyMappings()) {
-            if (pathOnly.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
-                matchedMapping = mapping;
-                matchedPath = mapping.path;
+        for (const bridge of getBridges()) {
+            if (pathOnly.startsWith(bridge.path) && bridge.path.length > matchedPath.length) {
+                matchedBridge = bridge;
+                matchedPath = bridge.path;
             }
         }
 
-        if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
-            const entry = dynamicProxies.get(matchedMapping.path)!;
+        if (matchedBridge && bridgeProxies.has(matchedBridge.path)) {
+            const entry = bridgeProxies.get(matchedBridge.path)!;
 
             // Get the extra path after the exposed path
-            let extraPath = pathOnly.slice(matchedMapping.path.length) || '';
+            let extraPath = pathOnly.slice(matchedBridge.path.length) || '';
             const queryString = reqPath.includes('?') ? reqPath.slice(reqPath.indexOf('?')) : '';
 
             // Build the new URL: targetPath + extraPath + query string
@@ -1118,7 +1118,7 @@ server.on('upgrade', (req, socket, head) => {
             }
 
             log.info('Proxying dynamic WebSocket upgrade', {
-                exposedPath: matchedMapping.path,
+                exposedPath: matchedBridge.path,
                 targetUrl: entry.targetOrigin + req.url,
             });
 
@@ -1133,23 +1133,23 @@ server.on('upgrade', (req, socket, head) => {
 });
 
 // ============================================================================
-// Dynamic Proxy Mappings for Local Servers
+// Bridges: dynamic reverse proxies for local servers
 // ============================================================================
 
-// Store for dynamic proxy instances - stores { proxy, targetOrigin, targetPath }
-interface ProxyEntry {
+// Live reverse-proxy instances backing each bridge
+interface BridgeProxy {
     proxy: ReturnType<typeof httpProxy.createProxyServer>;
     targetOrigin: string;
     targetPath: string;
 }
-const dynamicProxies = new Map<string, ProxyEntry>();
+const bridgeProxies = new Map<string, BridgeProxy>();
 
 /**
- * Create or update proxy for a mapping
+ * Create or update the reverse proxy backing a bridge
  */
-const setupProxyForMapping = (mapping: ProxyMapping): void => {
+const setupBridge = (bridge: Bridge): void => {
     // Normalize target URL
-    let targetUrl = mapping.target;
+    let targetUrl = bridge.target;
     if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
         targetUrl = `http://${targetUrl}`;
     }
@@ -1168,8 +1168,8 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
     }
 
     // Remove existing proxy if any
-    if (dynamicProxies.has(mapping.path)) {
-        const oldEntry = dynamicProxies.get(mapping.path);
+    if (bridgeProxies.has(bridge.path)) {
+        const oldEntry = bridgeProxies.get(bridge.path);
         oldEntry?.proxy.close();
     }
 
@@ -1177,12 +1177,12 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
     const proxy = httpProxy.createProxyServer({
         target: targetOrigin,
         changeOrigin: true,
-        // Don't rewrite redirects - we handle path mapping ourselves
+        // Don't rewrite redirects - we remap paths ourselves
         autoRewrite: false,
     });
 
     proxy.on('error', (err, _req, res) => {
-        log.error('Dynamic proxy error', { path: mapping.path, target: targetUrl, error: err.message });
+        log.error('Dynamic proxy error', { path: bridge.path, target: targetUrl, error: err.message });
         if (res && 'writeHead' in res && !res.headersSent) {
             res.writeHead(502, { 'Content-Type': 'text/plain' });
             res.end(`Proxy error: target server at ${targetUrl} not available`);
@@ -1197,11 +1197,11 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
                 statusCode: proxyRes.statusCode,
                 location,
                 targetPath,
-                exposedPath: mapping.path
+                exposedPath: bridge.path
             });
             // If the location starts with the target path, rewrite it to the exposed path
             if (location.startsWith(targetPath)) {
-                const newLocation = mapping.path + location.slice(targetPath.length);
+                const newLocation = bridge.path + location.slice(targetPath.length);
                 proxyRes.headers.location = newLocation;
                 log.info('Rewrote redirect Location header', {
                     original: location,
@@ -1211,62 +1211,62 @@ const setupProxyForMapping = (mapping: ProxyMapping): void => {
         }
     });
 
-    dynamicProxies.set(mapping.path, { proxy, targetOrigin, targetPath });
-    log.info('Proxy configured', { exposedPath: mapping.path, targetOrigin, targetPath });
+    bridgeProxies.set(bridge.path, { proxy, targetOrigin, targetPath });
+    log.info('Proxy configured', { exposedPath: bridge.path, targetOrigin, targetPath });
 };
 
 /**
- * Remove proxy for a path
+ * Tear down the reverse proxy for a bridge path
  */
-const removeProxyForPath = (path: string): void => {
-    if (dynamicProxies.has(path)) {
-        const entry = dynamicProxies.get(path);
+const removeBridgeProxy = (path: string): void => {
+    if (bridgeProxies.has(path)) {
+        const entry = bridgeProxies.get(path);
         entry?.proxy.close();
-        dynamicProxies.delete(path);
+        bridgeProxies.delete(path);
         log.info('Proxy removed', { path });
     }
 };
 
 // Initialize proxies from current config
-for (const mapping of getProxyMappings()) {
-    setupProxyForMapping(mapping);
+for (const bridge of getBridges()) {
+    setupBridge(bridge);
 }
 
 // Listen for config changes and update proxies
-onMappingsChange((newMappings) => {
-    // Find removed mappings
-    const newPaths = new Set(newMappings.map((m) => m.path));
-    for (const path of dynamicProxies.keys()) {
+onBridgesChange((newBridges) => {
+    // Find removed bridges
+    const newPaths = new Set(newBridges.map((m) => m.path));
+    for (const path of bridgeProxies.keys()) {
         if (!newPaths.has(path)) {
-            removeProxyForPath(path);
+            removeBridgeProxy(path);
         }
     }
 
-    // Add/update mappings
-    for (const mapping of newMappings) {
-        setupProxyForMapping(mapping);
+    // Add/update bridges
+    for (const bridge of newBridges) {
+        setupBridge(bridge);
     }
 });
 
-// Dynamic proxy route handler - must be added BEFORE the 404 handler
+// Bridge route handler - must be added BEFORE the 404 handler
 // This catches all requests to mapped paths
 app.use((req: Request, res: Response, next) => {
-    // Find matching proxy mapping (longest path match)
-    let matchedMapping: ProxyMapping | null = null;
+    // Find the matching bridge (longest path match)
+    let matchedBridge: Bridge | null = null;
     let matchedPath = '';
 
-    for (const mapping of getProxyMappings()) {
-        if (req.path.startsWith(mapping.path) && mapping.path.length > matchedPath.length) {
-            matchedMapping = mapping;
-            matchedPath = mapping.path;
+    for (const bridge of getBridges()) {
+        if (req.path.startsWith(bridge.path) && bridge.path.length > matchedPath.length) {
+            matchedBridge = bridge;
+            matchedPath = bridge.path;
         }
     }
 
-    if (matchedMapping && dynamicProxies.has(matchedMapping.path)) {
-        const entry = dynamicProxies.get(matchedMapping.path)!;
+    if (matchedBridge && bridgeProxies.has(matchedBridge.path)) {
+        const entry = bridgeProxies.get(matchedBridge.path)!;
 
         // Get the extra path after the exposed path (e.g., /openclaw/foo -> /foo)
-        let extraPath = req.path.slice(matchedMapping.path.length) || '';
+        let extraPath = req.path.slice(matchedBridge.path.length) || '';
 
         // Build the new URL: targetPath + extraPath + query string
         const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
@@ -1294,7 +1294,7 @@ app.use((req: Request, res: Response, next) => {
 
         log.info('Proxying request', {
             originalPath: req.path,
-            exposedPath: matchedMapping.path,
+            exposedPath: matchedBridge.path,
             extraPath,
             targetPath: entry.targetPath,
             finalUrl: req.url,

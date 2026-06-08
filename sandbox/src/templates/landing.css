@@ -394,7 +394,7 @@ a.status-badge:hover {
     }
 }
 
-/* Proxy mappings */
+/* Bridges */
 .field-label {
     display: block;
     font-size: 12px;
@@ -414,13 +414,13 @@ a.status-badge:hover {
 .input::placeholder {
     color: var(--text-faint);
 }
-.proxy-form {
+.bridge-form {
     display: flex;
     gap: 10px;
     flex-wrap: wrap;
     align-items: flex-end;
 }
-.proxy-row {
+.bridge-row {
     display: flex;
     align-items: center;
     gap: 12px;
@@ -430,18 +430,18 @@ a.status-badge:hover {
     border-radius: 8px;
     margin-bottom: 8px;
 }
-.proxy-row code {
+.bridge-row code {
     background: none;
     border: none;
     padding: 0;
 }
-.proxy-path {
+.bridge-path {
     flex: 1;
 }
-.proxy-target {
+.bridge-target {
     flex: 2;
 }
-.proxy-open {
+.bridge-open {
     font-size: 13px;
 }
 .tag {
@@ -457,7 +457,7 @@ a.status-badge:hover {
     font-size: 12px;
     font-weight: 600;
 }
-.proxy-empty {
+.bridge-empty {
     color: var(--text-faint);
     font-style: italic;
 }
