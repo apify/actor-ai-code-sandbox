@@ -88,9 +88,8 @@ a:hover {
 
 .hero {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 20px;
+    flex-direction: column;
+    gap: 14px;
     padding: 30px;
     background: var(--hero-bg);
     border: 1px solid var(--border);
@@ -105,16 +104,28 @@ a:hover {
     height: 3px;
     background: var(--accent-bar);
 }
+.hero-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+.hero-badges {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+    flex-shrink: 0;
+}
 h1 {
     font-size: 30px;
     font-weight: 700;
     letter-spacing: -0.02em;
     color: var(--text-strong);
-    margin-bottom: 8px;
 }
 .lead {
     color: var(--text-muted);
-    max-width: 64ch;
     font-size: 15px;
 }
 .badge {
@@ -466,7 +477,7 @@ a.status-badge:hover {
     body {
         padding: 22px 14px 40px;
     }
-    .hero {
+    .hero-bar {
         flex-direction: column;
         align-items: flex-start;
     }
