@@ -16,21 +16,21 @@ ORANGE='\\033[38;5;208m'
 NC='\\033[0m' # No Color
 BOLD='\\033[1m'
 
-# Print ASCII Art
-echo -e "\${GREEN}                    *++++++++++++   \${BLUE}************\${NC}"
-echo -e "\${GREEN}                    *+++++++++++     \${BLUE}***********\${NC}"
-echo -e "\${GREEN}                    *++++++++++       \${BLUE}**********\${NC}"
-echo -e "\${GREEN}                    *+++++++++         \${BLUE}*********\${NC}"
-echo -e "\${GREEN}                    *++++++++           \${BLUE}********\${NC}"
-echo -e "\${GREEN}                    *+++++++             \${BLUE}*******\${NC}"
-echo -e "                    \${GREEN}*+++++       \${ORANGE}+\${BLUE}       ******"
-echo -e "                    \${GREEN}*+++       \${ORANGE}+++++\${BLUE}       ****"
-echo -e "                    \${GREEN}++       \${ORANGE}+++++++++\${BLUE}       **"
-echo -e "\${ORANGE}                           +++++++++++++"
-echo -e "                         +++++++++++++++++"
-echo -e "                       +++++++++++++++++++++"
-echo -e "                     +++++++++++++++++++++++++"
-echo -e "                    +++++++++++++++++++++++++++\${NC}"
+# Print ASCII Art (Apify logo)
+echo -e "\${GREEN}██████████\${NC}     \${BLUE}██████████\${NC}"
+echo -e "\${GREEN}█████████\${NC}       \${BLUE}█████████\${NC}"
+echo -e "\${GREEN}████████\${NC}         \${BLUE}████████\${NC}"
+echo -e "\${GREEN}███████\${NC}           \${BLUE}███████\${NC}"
+echo -e "\${GREEN}██████\${NC}             \${BLUE}██████\${NC}"
+echo -e "\${GREEN}█████\${NC}               \${BLUE}█████\${NC}"
+echo -e "\${GREEN}████\${NC}                 \${BLUE}████\${NC}"
+echo -e "\${GREEN}███\${NC}         \${ORANGE}█\${NC}         \${BLUE}███\${NC}"
+echo -e "\${GREEN}██\${NC}        \${ORANGE}█████\${NC}        \${BLUE}██\${NC}"
+echo -e "        \${ORANGE}█████████\${NC}"
+echo -e "      \${ORANGE}█████████████\${NC}"
+echo -e "     \${ORANGE}███████████████\${NC}"
+echo -e "   \${ORANGE}███████████████████\${NC}"
+echo -e " \${ORANGE}███████████████████████\${NC}"
 
 echo ""
 echo -e "\${BOLD}Welcome to Apify AI Code Sandbox Actor!\${NC}"
@@ -69,7 +69,7 @@ if [ -n "\$ACTOR_RUN_ID" ]; then
     echo -e "  - Actor run:     https://console.apify.com/view/runs/\$ACTOR_RUN_ID"
 fi
 echo -e "  - Actor page:    https://apify.com/apify/ai-code-sandbox"
-echo -e "  - Git repo:          https://github.com/apify/actor-ai-sandbox"
+echo -e "  - Git repo:      https://github.com/apify/actor-ai-code-sandbox"
 echo ""
 `;
 
