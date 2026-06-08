@@ -200,6 +200,9 @@ RUN mkdir -p /root/.claude && \
 # default to requires_openai_auth=false, so Codex starts straight into a session with
 # no "Sign in with ChatGPT" prompt. Bare keys must precede the [table] headers so the
 # MCP-connector block appended at runtime (see src/mcp-agent-config.ts) stays valid TOML.
+# wire_api MUST be "responses": Codex removed support for the older "chat"
+# (chat/completions) wire protocol, and the Apify OpenRouter proxy speaks the
+# OpenAI Responses API, so Codex talks to it at <base_url>/responses.
 RUN mkdir -p /root/.codex && \
     printf '%s\n' \
         'model = "anthropic/claude-sonnet-4.5"' \
@@ -212,7 +215,7 @@ RUN mkdir -p /root/.codex && \
         'base_url = "https://openrouter.apify.actor/api/v1"' \
         'env_key = "APIFY_TOKEN"' \
         'requires_openai_auth = false' \
-        'wire_api = "chat"' \
+        'wire_api = "responses"' \
         > /root/.codex/config.toml
 
 # Lazy-install launchers for the coding agents. Sourced by the shell rcfile (see
