@@ -1,8 +1,10 @@
 # Apify AI Code Sandbox
 
-Secure, isolated container for executing arbitrary code — built for AI coding agents and untrusted code. Connect over **MCP**, a **REST API**, or an **interactive browser shell**. Ships with **Claude Code**, **Codex CLI**, and **OpenCode** pre-configured and ready to launch. 🚀
+Secure, isolated container for executing arbitrary code, built for AI coding agents and untrusted code.
+Connect over **MCP**, a **REST API**, or an **interactive browser shell**.
+Ships with **Claude Code**, **Codex CLI**, and **OpenCode** pre-configured and ready to launch.
 
-> 💡 Open the Actor's **landing page** (the container URL, shown in the run log and Actor output) for live connection details, one-click shell/agent launches, a health badge, and the idle-shutdown countdown. The same docs are served as machine-readable Markdown at `/llms.txt`.
+This Actor launches a web server on the Actor container URL that provides interface to the sandbox.
 
 ## Use cases
 
@@ -13,25 +15,38 @@ Secure, isolated container for executing arbitrary code — built for AI coding 
 - **Expose internal services** (dev servers, dashboards, TUIs) at a public URL with bridges.
 - **Orchestrate Apify Actors** using the limited-permission `APIFY_TOKEN` available inside the sandbox to run other [limited-permission Actors](https://docs.apify.com/platform/actors/development/permissions) and build data pipelines.
 
+
 ## Quickstart
 
 1. Run the Actor on the [Apify platform](https://console.apify.com/) (Console or API).
-2. Open the **landing page** — the container URL from the run log / Actor output — for live links and connection details.
+2. Open the sandbox **landing page** (the container URL shown in the Actor output) for live links and connection details.
 3. Connect with an MCP client, call the REST API, or open the shell.
 
 Examples below use `https://UNIQUE-ID.runs.apify.net` as the container URL — replace it with your run's URL.
+
 
 ## 🖥️ Interactive shell — `/shell`
 
 Browser terminal (powered by ttyd) for hands-on work inside the sandbox.
 
-- `…/shell` — plain Bash shell.
+- `https://UNIQUE-ID.runs.apify.net/shell` — plain Bash shell.
 - `…/shell?launch=claude` — launch **Claude Code**.
 - `…/shell?launch=codex` — launch **Codex CLI**.
 - `…/shell?launch=opencode` — launch **OpenCode**.
 - `…/shell?launch=<command>` — run any command, then drop into a shell.
 
-The coding agents are installed on first use and start pre-configured against the Apify OpenRouter proxy (billed as OpenRouter API usage).
+The coding agents are installed on first use and start pre-configured against the [Apify OpenRouter proxy](https://apify.com/apify/openrouter),
+billed to your Apify account.
+
+
+## 🤖 AI agent instructions
+
+The sandbox landing page is also available as Markdown as the `/llms.txt` file:
+
+```
+https://UNIQUE-ID.runs.apify.net/llms.txt
+```
+
 
 ## 📡 Connect with MCP — `/mcp`
 
@@ -41,7 +56,7 @@ Streamable-HTTP MCP endpoint, no authentication required:
 https://UNIQUE-ID.runs.apify.net/mcp
 ```
 
-Add it to a client:
+Add it to an MCP client:
 
 ```bash
 claude mcp add --transport http sandbox https://UNIQUE-ID.runs.apify.net/mcp
@@ -67,6 +82,7 @@ curl -X POST https://UNIQUE-ID.runs.apify.net/exec \
 
 Default working directories: shell → `/sandbox`, JS/TS → `/sandbox/js-ts`, Python → `/sandbox/py`. Override with `cwd` (must stay within `/sandbox`).
 
+
 ## 📁 Filesystem API — `/fs`
 
 Direct file operations over HTTP. All paths are relative to `/sandbox` and validated to stay inside it.
@@ -86,6 +102,7 @@ curl -X DELETE "https://UNIQUE-ID.runs.apify.net/fs/temp?recursive=1"           
 
 Prefer a UI? Browse the filesystem at `/browse`.
 
+
 ## 🔀 Bridges — `/bridges`
 
 Expose a web server you start **inside** the sandbox at a public URL path on the container, reachable over HTTP and WebSocket. Each bridge forwards `…/{path}` → `http://127.0.0.1:{port}/…`.
@@ -104,6 +121,7 @@ curl -X POST https://UNIQUE-ID.runs.apify.net/bridges \
 ```
 
 Bridges can also be set via the `bridges` input or by writing `/sandbox/.bridges.json` (changes are picked up live). Longest-path matching and `Location`-header rewriting are automatic, and bridges persist across restarts.
+
 
 ## Health & status — `/health`
 
