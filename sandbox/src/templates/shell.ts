@@ -127,7 +127,7 @@ export const TERMINAL_DISCONNECT_MESSAGE = 'Connection lost — press ⏎ to rec
  * Message shown when a reconnect attempt fails — the Actor run has most likely
  * stopped (idle timeout, abort, run timeout, migration). Pressing ⏎ still retries.
  */
-export const TERMINAL_FINISHED_MESSAGE = 'Actor probably finished — press ⏎ to retry';
+export const TERMINAL_FINISHED_MESSAGE = 'Actor run probably finished — press ⏎ to retry';
 
 /**
  * Browser script injected into ttyd's terminal page to explain *why* the session

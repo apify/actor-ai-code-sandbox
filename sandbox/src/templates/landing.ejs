@@ -120,8 +120,8 @@
                 <li>Shell commands: <code>/sandbox</code> (default)</li>
                 <li>JavaScript/TypeScript: <code>/sandbox/js-ts</code> (default)</li>
                 <li>Python: <code>/sandbox/py</code> (default)</li>
-                <li>Override with <code>cwd</code> parameter (must be within <code>/sandbox</code>)</li>
             </ul>
+            <p class="muted">Override with <code>cwd</code> parameter (must be within <code>/sandbox</code>).</p>
         </section>
 
         <section class="card">
@@ -155,7 +155,7 @@
   <span class="hl-flag">-d</span> <span class="hl-string">"New log entry"</span></pre>
             </div>
 
-            <h3 class="example-label">Delete file or directory</h3>
+            <h3 class="example-label">Delete file or directory (to delete non-empty directory add <code>recursive=1</code>)</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
                 <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">DELETE</span> <span class="hl-url"><%= serverUrl %>/fs/temp?recursive=1</span></pre>
