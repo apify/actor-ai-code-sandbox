@@ -203,14 +203,18 @@ RUN mkdir -p /root/.claude && \
 # wire_api MUST be "responses": Codex removed support for the older "chat"
 # (chat/completions) wire protocol, and the Apify OpenRouter proxy speaks the
 # OpenAI Responses API, so Codex talks to it at <base_url>/responses.
-# model uses OpenRouter's "~openai/gpt-latest" alias — Codex's native OpenAI
-# flagship, auto-tracking the newest release instead of pinning a stale version.
+# model is pinned to OpenRouter's "openai/gpt-5.5", OpenAI's current flagship.
+# Pinning the concrete version rather than the "~openai/gpt-latest" floating
+# alias lets Codex resolve its bundled model metadata (context window etc.) by
+# matching the "gpt-5.5" slug suffix, so it no longer warns that metadata is
+# "not found" and silently falls back to defaults that mis-size the context
+# window. Bump this when a newer flagship ships.
 # [projects."/sandbox"] pre-trusts the sandbox working dir (ttyd starts shells
 # there) so Codex skips its interactive "Do you trust this directory?" prompt on
 # first launch; Codex has no global trust-all switch.
 RUN mkdir -p /root/.codex && \
     printf '%s\n' \
-        'model = "~openai/gpt-latest"' \
+        'model = "openai/gpt-5.5"' \
         'model_provider = "apify-openrouter"' \
         'approval_policy = "never"' \
         'sandbox_mode = "danger-full-access"' \
