@@ -203,9 +203,12 @@ RUN mkdir -p /root/.claude && \
 # wire_api MUST be "responses": Codex removed support for the older "chat"
 # (chat/completions) wire protocol, and the Apify OpenRouter proxy speaks the
 # OpenAI Responses API, so Codex talks to it at <base_url>/responses.
+# model uses OpenRouter's "~<vendor>/<family>-latest" alias so it auto-tracks the
+# newest release (e.g. the current Claude Sonnet) instead of pinning a version
+# that goes stale.
 RUN mkdir -p /root/.codex && \
     printf '%s\n' \
-        'model = "anthropic/claude-sonnet-4.5"' \
+        'model = "~anthropic/claude-sonnet-latest"' \
         'model_provider = "apify-openrouter"' \
         'approval_policy = "never"' \
         'sandbox_mode = "danger-full-access"' \
