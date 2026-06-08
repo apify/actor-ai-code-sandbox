@@ -1177,17 +1177,17 @@ server.listen(port, () => {
     console.log('=====================================\n');
 
     console.log('🏠 Landing page (open first):');
-    console.log(`   GET ${serverUrl}/`);
+    console.log(`   ${serverUrl}/`);
     console.log('       Connection details, quick links, and endpoint URLs\n');
 
     // LLMs.txt documentation endpoint
     console.log('📄 LLMs documentation:');
-    console.log(`   GET ${serverUrl}/llms.txt`);
+    console.log(`   ${serverUrl}/llms.txt`);
     console.log('       Markdown reference of all endpoints for LLMs\n');
 
     // Shell terminal endpoint
     console.log('🖥️  Shell terminal:');
-    console.log(`   GET ${serverUrl}/shell/`);
+    console.log(`   ${serverUrl}/shell/`);
     console.log('       Interactive shell terminal\n');
 
     console.log('=====================================\n');
