@@ -3,9 +3,10 @@
  *
  * Translates the user's MCP Connectors (the same list written to
  * /sandbox/mcp.json by mcp-connections.ts) into the native config format of
- * each pre-installed coding agent — Claude Code, Codex, and OpenCode — so the
- * connectors are available as tools the moment the agent starts, with no
- * `claude mcp add` / `mcpc connect` step.
+ * each supported coding agent — Claude Code, Codex, and OpenCode — so the
+ * connectors are available as tools the moment the agent starts (installed on
+ * first use; see agent-launchers.sh), with no `claude mcp add` / `mcpc connect`
+ * step.
  *
  * Why a translation step rather than pointing every agent at /sandbox/mcp.json:
  * the three agents disagree on both the config schema and the env-var syntax.
