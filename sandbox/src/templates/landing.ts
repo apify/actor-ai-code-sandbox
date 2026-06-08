@@ -31,7 +31,11 @@ const landingTemplate = readFileSync(templatePath, 'utf8');
 const stylesPath = join(dirname(fileURLToPath(import.meta.url)), 'landing.css');
 const landingStyles = readFileSync(stylesPath, 'utf8');
 
-const STRIP_SELECTOR = 'script, style, [data-no-md], .copy-btn, .status-badge';
+// `.status-badge` is intentionally not stripped here: the health-status badge is
+// kept in /llms.txt so the /health URL stays discoverable. Badges that should not
+// appear in the Markdown (the /llms.txt link, the idle countdown) are tagged
+// data-no-md in the template instead.
+const STRIP_SELECTOR = 'script, style, [data-no-md], .copy-btn';
 
 const nhm = new NodeHtmlMarkdown(
     {
