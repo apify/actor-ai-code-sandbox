@@ -203,12 +203,14 @@ RUN mkdir -p /root/.claude && \
 # wire_api MUST be "responses": Codex removed support for the older "chat"
 # (chat/completions) wire protocol, and the Apify OpenRouter proxy speaks the
 # OpenAI Responses API, so Codex talks to it at <base_url>/responses.
-# model uses OpenRouter's "~<vendor>/<family>-latest" alias so it auto-tracks the
-# newest release (e.g. the current Claude Sonnet) instead of pinning a version
-# that goes stale.
+# model uses OpenRouter's "~openai/gpt-latest" alias — Codex's native OpenAI
+# flagship, auto-tracking the newest release instead of pinning a stale version.
+# [projects."/sandbox"] pre-trusts the sandbox working dir (ttyd starts shells
+# there) so Codex skips its interactive "Do you trust this directory?" prompt on
+# first launch; Codex has no global trust-all switch.
 RUN mkdir -p /root/.codex && \
     printf '%s\n' \
-        'model = "~anthropic/claude-sonnet-latest"' \
+        'model = "~openai/gpt-latest"' \
         'model_provider = "apify-openrouter"' \
         'approval_policy = "never"' \
         'sandbox_mode = "danger-full-access"' \
@@ -219,6 +221,9 @@ RUN mkdir -p /root/.codex && \
         'env_key = "APIFY_TOKEN"' \
         'requires_openai_auth = false' \
         'wire_api = "responses"' \
+        '' \
+        '[projects."/sandbox"]' \
+        'trust_level = "trusted"' \
         > /root/.codex/config.toml
 
 # Lazy-install launchers for the coding agents. Sourced by the shell rcfile (see

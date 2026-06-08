@@ -34,5 +34,5 @@
             }
         }
     },
-    "model": "apify-openrouter/~anthropic/claude-sonnet-latest"
+    "model": "apify-openrouter/~anthropic/claude-opus-latest"
 }
