@@ -222,6 +222,16 @@ h3 {
     color: var(--text);
     font-weight: 600;
 }
+.bullets {
+    padding-left: 1.4em;
+}
+.bullets li {
+    color: var(--text-muted);
+    margin-top: 9px;
+}
+.bullets li:first-child {
+    margin-top: 0;
+}
 
 /* Inline code chips render truly inline so they sit on the text baseline. */
 code {
@@ -235,6 +245,14 @@ code {
     color: var(--icode-text);
     vertical-align: baseline;
     white-space: nowrap;
+}
+/* Route chip shown next to a section title, e.g. /mcp */
+.section-path {
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text-muted);
+    background: var(--chip);
+    border-color: var(--border);
 }
 .muted {
     color: var(--text-muted);

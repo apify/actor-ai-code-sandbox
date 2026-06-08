@@ -50,7 +50,7 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">📡</span> Connect with MCP</h2>
+            <h2><span class="section-icon">📡</span> Connect with MCP <code class="section-path">/mcp</code></h2>
             <h3 class="example-label">MCP server URL (no authentication required)</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
@@ -68,7 +68,7 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">⚡</span> Code execution API</h2>
+            <h2><span class="section-icon">⚡</span> Code execution API <code class="section-path">/exec</code></h2>
 
             <h3 class="example-label">Run Bash command</h3>
             <div class="code-block-wrapper">
@@ -107,7 +107,7 @@
             </div>
 
             <h3 class="example-label">Working directories</h3>
-            <ul class="list">
+            <ul class="bullets">
                 <li>Shell commands: <code>/sandbox</code> (default)</li>
                 <li>JavaScript/TypeScript: <code>/sandbox/js-ts</code> (default)</li>
                 <li>Python: <code>/sandbox/py</code> (default)</li>
@@ -116,7 +116,7 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">📁</span> Filesystem API</h2>
+            <h2><span class="section-icon">📁</span> Filesystem API <code class="section-path">/fs</code></h2>
             <p class="muted">Direct file operations using HTTP methods. All paths relative to <code>/sandbox</code>.</p>
 
             <h3 class="example-label">Read file or list directory</h3>
@@ -160,8 +160,8 @@
         </section>
 
         <section class="card">
-            <h2><span class="section-icon">🔀</span> Proxy mappings</h2>
-            <p class="muted">Expose web servers that you start <em>inside</em> the sandbox (your own dev server, a TUI gateway, etc.) at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards <code>&lt;container-url&gt;/&lt;path&gt;</code> to <code>http://127.0.0.1:&lt;port&gt;/...</code> over HTTP and WebSocket. Changes apply immediately and persist across restarts.</p>
+            <h2><span class="section-icon">🔀</span> Proxy mappings <code class="section-path">/proxy-config</code></h2>
+            <p class="muted">Expose web servers that you start <em>inside</em> the sandbox (your own dev server, a TUI gateway, etc.) at a public URL path on this container, so they're reachable from the browser or other services. Each mapping forwards <code><%= serverUrl %>/&lt;path&gt;</code> to <code>http://127.0.0.1:&lt;port&gt;/...</code> over HTTP and WebSocket. Changes apply immediately and persist across restarts.</p>
 
             <div data-no-md id="proxyMappingsList"></div>
 
