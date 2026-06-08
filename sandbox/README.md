@@ -8,12 +8,12 @@ This Actor launches a web server on the Actor container URL that provides interf
 
 ## Use cases
 
-- **Run untrusted or AI-generated code safely** in an isolated container with controlled resources. 🔒
-- **Give AI agents a managed workspace** to write, run, and test code — with state that survives container migrations. 🤖
-- **Drop in over MCP** so any MCP client gains code-execution and filesystem tools, no glue code. 🔌
-- **Pair with coding agents** (Claude Code, Codex CLI, OpenCode) right in the browser shell. 💻
-- **Expose internal services** (dev servers, dashboards, TUIs) at a public URL with bridges. 🌐
-- **Orchestrate Apify Actors** using the limited-permission `APIFY_TOKEN` available inside the sandbox to run other [limited-permission Actors](https://docs.apify.com/platform/actors/development/permissions) and build data pipelines. 🎭
+- 🔒 **Run untrusted or AI-generated code safely** in an isolated container with controlled resources.
+- 🤖 **Give AI agents a managed workspace** to write, run, and test code — with state that survives container migrations.
+- 🔌 **Drop in over MCP** so any MCP client gains code-execution and filesystem tools, no glue code.
+- 💻 **Pair with coding agents** (Claude Code, Codex CLI, OpenCode) right in the browser shell.
+- 🌐 **Expose internal services** (dev servers, dashboards, TUIs) at a public URL with bridges.
+- 🎭 **Orchestrate Apify Actors** using the limited-permission `APIFY_TOKEN` available inside the sandbox to run other [limited-permission Actors](https://docs.apify.com/platform/actors/development/permissions) and build data pipelines.
 
 
 ## Quickstart
