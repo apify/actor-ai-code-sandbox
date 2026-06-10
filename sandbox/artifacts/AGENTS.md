@@ -104,8 +104,8 @@ Datasets support JSON, CSV, and Excel export formats.
 
 Pre-configured and ready:
 
-- **Apify CLI** (`apify`) installed globally
-- **MCP Client** (`mcpc`) installed globally
+- **Apify CLI** (`apify`) available on PATH — installed automatically on first use, so allow ~30s for the very first call
+- **MCP Client** (`mcpc`) available on PATH — installed automatically on first use, so allow ~30s for the very first call
 - **jq** for JSON processing
 - **Environment variables:**
     - **`APIFY_TOKEN`** - API authentication token

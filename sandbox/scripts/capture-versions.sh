@@ -26,28 +26,13 @@ if ! python3 --version > "$VERSION_DIR/python.txt" 2>&1; then
 fi
 echo "✅ Python: $(cat "$VERSION_DIR/python.txt")"
 
-# Capture Apify CLI version (optional)
-if apify --version > "$VERSION_DIR/apify.txt" 2>/dev/null; then
-    echo "✅ Apify CLI: $(cat "$VERSION_DIR/apify.txt")"
-else
-    echo "not installed" > "$VERSION_DIR/apify.txt"
-    echo "⚠️  Apify CLI: not installed"
-fi
-
-# Capture mcpc version (optional)
-if mcpc --version > "$VERSION_DIR/mcpc.txt" 2>/dev/null; then
-    echo "✅ mcpc: $(cat "$VERSION_DIR/mcpc.txt")"
-else
-    echo "not installed" > "$VERSION_DIR/mcpc.txt"
-    echo "⚠️  mcpc: not installed"
-fi
-
-# Claude Code, OpenCode, and Codex are NOT captured here: they are installed
-# lazily on first use (see agent-launchers.sh), so there is nothing to probe at
-# build time. The shell welcome message detects them at runtime instead — it
-# falls back to `<agent> --version` when the cached version file is absent — so
-# it shows the real version once an agent has been installed, and "not installed"
-# before that.
+# The Apify CLI, mcpc, Claude Code, OpenCode, and Codex are NOT captured here:
+# they are installed lazily on first use (see cli-shims.sh for the CLIs and
+# agent-launchers.sh for the agents), so there is nothing to probe at build
+# time. Probing `apify`/`mcpc` here would actually trigger their shims and
+# install ~220 MB into the image. The shell welcome message detects all of
+# them at runtime instead, showing the real version once a tool has been
+# installed and an "installs on first use" hint before that.
 
 echo ""
 echo "🎉 Version capture complete! Files stored in $VERSION_DIR"

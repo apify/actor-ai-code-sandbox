@@ -86,15 +86,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     jq \
     && rm -rf /var/lib/apt/lists/*
 
-# Install global CLI tooling in a single layer, then drop the npm cache so it
-# doesn't bloat the image:
-#   - tsx: TypeScript execution in the execute-code endpoint
-#   - apify-cli: --ignore-scripts works around apify-client's `only-allow pnpm`
-#     preinstall hook
-#   - @apify/mcpc: MCP CLI (binary: mcpc)
+# Install global CLI tooling, then drop the npm cache so it doesn't bloat the
+# image. Only tsx is baked in: the execute-code endpoint shells out to it for
+# TypeScript, so it must work without network access or first-call latency —
+# and it is small (~12 MB).
 RUN npm install -g tsx \
-    && npm install -g --ignore-scripts apify-cli \
-    && npm install -g @apify/mcpc \
     && npm cache clean --force
 
 # NOTE: The AI coding agent CLIs (Claude Code, OpenCode, Codex) are deliberately
@@ -104,6 +100,10 @@ RUN npm install -g tsx \
 # sourced from the shell rcfile). This keeps the image small and always pulls
 # the latest agent release. Their configuration overrides are still baked in
 # below, so each agent starts pre-configured the moment it is installed.
+#
+# The Apify CLI (~113 MB) and mcpc (~110 MB) get the same lazy treatment, but
+# via PATH shims rather than shell functions because they must also work in
+# non-interactive shells — see the cli-shims.sh block below.
 
 # Create sandbox directory for operations
 RUN mkdir -p /sandbox && chmod 755 /sandbox
@@ -163,8 +163,14 @@ COPY --from=builder /build/artifacts/opencode.json /root/.config/opencode/openco
 # Install production dependencies only
 RUN npm install --production && npm cache clean --force
 
-# Add local bin to PATH for CLI tools (Claude at ~/.local/bin, OpenCode at ~/.opencode/bin)
-ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH"
+# PATH additions:
+#   - /root/.local/bin, /root/.opencode/bin: agent CLIs installed on first use
+#     (Claude Code and Codex at ~/.local/bin, OpenCode at ~/.opencode/bin)
+#   - /opt/sandbox-bin LAST: lazy-install shims for apify/mcpc (see the
+#     cli-shims.sh block below). npm's global bin (/usr/local/bin, part of the
+#     inherited $PATH) must come before it so the real binaries win over the
+#     shims once installed.
+ENV PATH="/root/.local/bin:/root/.opencode/bin:$PATH:/opt/sandbox-bin"
 
 # Mark the container as a trusted sandbox.
 # Claude Code refuses to run in bypassPermissions / --dangerously-skip-permissions
@@ -241,6 +247,28 @@ RUN bash -n /app/agent-launchers.sh \
     && bash -c '. /app/agent-launchers.sh; for f in claude opencode codex; do \
         [ "$(type -t "$f")" = function ] || { echo "agent-launchers.sh did not define function: $f"; exit 1; }; \
     done'
+
+# Lazy-install shims for the Apify CLI (`apify`) and mcpc — together ~220 MB of
+# npm packages that the server itself never invokes, so they are installed on
+# first use instead of baked in. Unlike the agent launchers above they are real
+# executables on PATH, not rcfile functions: AI agents and the execute-code
+# endpoints run commands in non-interactive shells that never source the
+# rcfile, and AGENTS.md tells the agents to use both tools. One script serves
+# all shimmed tools, copied under each tool's name and dispatching on $0; it
+# installs into npm's global bin (/usr/local/bin), which precedes
+# /opt/sandbox-bin on PATH (see ENV PATH above), so the shim drops out of
+# resolution once the real binary exists. Validate the script at build time —
+# it parses, and a name without an install recipe fails cleanly instead of
+# looping or installing something arbitrary.
+COPY scripts/cli-shims.sh /opt/sandbox-bin/apify
+COPY scripts/cli-shims.sh /opt/sandbox-bin/mcpc
+RUN chmod 755 /opt/sandbox-bin/apify /opt/sandbox-bin/mcpc \
+    && bash -n /opt/sandbox-bin/apify \
+    && cp /opt/sandbox-bin/apify /tmp/not-a-shim \
+    && if /tmp/not-a-shim --version >/dev/null 2>&1; then \
+        echo "cli-shims.sh must reject names without an install recipe"; exit 1; \
+    fi \
+    && rm /tmp/not-a-shim
 
 # Capture tool versions at build time for fast shell startup
 COPY scripts/capture-versions.sh /tmp/capture-versions.sh

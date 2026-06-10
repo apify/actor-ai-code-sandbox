@@ -40,11 +40,14 @@ echo -e "\${GREEN}System info:\${NC}"
 VERSION_DIR="/app/.versions"
 NODE_VER=\$(cat "\$VERSION_DIR/node.txt" 2>/dev/null || node -v 2>/dev/null || echo 'not installed')
 PYTHON_VER=\$(cat "\$VERSION_DIR/python.txt" 2>/dev/null || python3 --version 2>&1 || echo 'not installed')
-APIFY_VER=\$(cat "\$VERSION_DIR/apify.txt" 2>/dev/null || apify --version 2>/dev/null || echo 'not installed')
-MCPC_VER=\$(cat "\$VERSION_DIR/mcpc.txt" 2>/dev/null || mcpc --version 2>/dev/null || echo 'not installed')
-CLAUDE_CODE_VER=\$(cat "\$VERSION_DIR/claude.txt" 2>/dev/null || claude --version 2>/dev/null || echo 'not installed')
-OPENCODE_VER=\$(cat "\$VERSION_DIR/opencode.txt" 2>/dev/null || opencode --version 2>/dev/null || echo 'not installed')
-CODEX_VER=\$(cat "\$VERSION_DIR/codex.txt" 2>/dev/null || codex --version 2>/dev/null || echo 'not installed')
+# apify and mcpc are lazy-installed via PATH shims (see cli-shims.sh), so probe
+# npm's global bin directly — the bare names would resolve to the shims and
+# trigger a full install just to render this banner.
+APIFY_VER=\$(/usr/local/bin/apify --version 2>/dev/null || echo 'installs on first use')
+MCPC_VER=\$(/usr/local/bin/mcpc --version 2>/dev/null || echo 'installs on first use')
+CLAUDE_CODE_VER=\$(cat "\$VERSION_DIR/claude.txt" 2>/dev/null || claude --version 2>/dev/null || echo 'installs on first use')
+OPENCODE_VER=\$(cat "\$VERSION_DIR/opencode.txt" 2>/dev/null || opencode --version 2>/dev/null || echo 'installs on first use')
+CODEX_VER=\$(cat "\$VERSION_DIR/codex.txt" 2>/dev/null || codex --version 2>/dev/null || echo 'installs on first use')
 
 echo -e "  - Node.js:       \$NODE_VER"
 echo -e "  - Python:        \$PYTHON_VER"
