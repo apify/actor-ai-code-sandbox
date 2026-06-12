@@ -41,10 +41,7 @@ export const translateLaunchParam = (path: string): string => {
     params.delete('launch');
     const cmd = buildLaunchCommand(launch);
 
-    const parts: string[] = [
-        `arg=${encodeURIComponent('-c')}`,
-        `arg=${encodeURIComponent(cmd)}`,
-    ];
+    const parts: string[] = [`arg=${encodeURIComponent('-c')}`, `arg=${encodeURIComponent(cmd)}`];
     const rest = params.toString();
     if (rest) parts.push(rest);
 

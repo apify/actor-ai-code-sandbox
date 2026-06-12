@@ -1,66 +1,49 @@
-import { spawn } from 'node:child_process';
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs';
-import http, { createServer } from 'node:http';
-import type { Duplex } from 'node:stream';
+/**
+ * Actor entrypoint: runs the startup sequence (input parsing, migration
+ * restore, dependency installation, init script), then assembles and starts
+ * the HTTP server.
+ *
+ * Feature logic lives in dedicated modules — routes/* for the HTTP API,
+ * shell-server.ts for the interactive terminal, bridge-proxy.ts for exposing
+ * local servers, idle.ts for the inactivity shutdown. This file is the
+ * sequence and the wiring, top to bottom.
+ */
+import { createServer } from 'node:http';
 
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Actor, log } from 'apify';
 import type { Request, Response } from 'express';
 import express from 'express';
-import httpProxy from 'http-proxy';
 
-import { DEFAULT_IDLE_TIMEOUT_SECS, SANDBOX_DIR } from './consts.js';
+import { bridgeRequestHandler, handleBridgeUpgrade, initializeBridgeProxies } from './bridge-proxy.js';
+import { initializeBridges } from './bridges.js';
 import { parseEnvVars } from './env-vars.js';
 import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
-import { createMcpServer } from './mcp.js';
+import { configureIdleTimeout, getIdleTimeoutSecs, getRemainingSecs, startIdleMonitor, touchActivity } from './idle.js';
 import { configureAgentMcpServers } from './mcp-agent-config.js';
 import { writeMcpConfig } from './mcp-connections.js';
-import { translateLaunchParam } from './shell-launch.js';
 import { parseNodeDependencies } from './node-deps.js';
-import { setStatusMessage } from './status.js';
-import {
-    appendFile,
-    createDirectory,
-    createZipArchive,
-    deleteFileOrDirectory,
-    executeCode,
-    listFilesDetailed,
-    readFileBinary,
-    runCommand,
-    statPath,
-    writeFileBinary,
-} from './operations.js';
 import { initializePersistence, restoreMigrationState, saveMigrationState } from './persistence.js';
-import {
-    addBridge,
-    getBridges,
-    initializeBridges,
-    onBridgesChange,
-    removeBridge,
-    saveBridges,
-} from './bridges.js';
+import { createBridgesRouter } from './routes/bridges.js';
+import { handleExec } from './routes/exec.js';
+import { createFsRouter } from './routes/fs.js';
+import { handleMcp } from './routes/mcp.js';
+import { handleShellUpgrade, registerShellRoutes, startShellBackend } from './shell-server.js';
 import { parseSkills } from './skills.js';
+import { setStatusMessage } from './status.js';
 import { getBrowsePageHTML } from './templates/browse.js';
 import { getLandingPageHTML, getLLMsMarkdown } from './templates/landing.js';
-import { injectTerminalReconnectScript, SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
-import {
-    appendTtydOutput,
-    buildShellUnavailableMessage,
-    isTtydStartupCrash,
-    nextTtydRestartDelayMs,
-    TTYD_RESTART_MIN_MS,
-} from './ttyd.js';
-import type { ActorInput, Bridge } from './types.js';
+import type { ActorInput } from './types.js';
 
-// Track initialization state
+// ============================================================================
+// Startup sequence
+// ============================================================================
+
+// Track initialization state for the /health endpoint
 let initializationComplete = false;
 let initializationError: string | null = null;
-let lastActivityAt = Date.now();
-// Seconds of inactivity before auto-shutdown (0 = disabled). Set from input at
-// startup; kept module-level so the landing page and /health can report it.
-let idleTimeoutSecs = DEFAULT_IDLE_TIMEOUT_SECS;
 
-// Check if running in local mode
+// In local mode (MODE=local) the sandbox directories, dependency installation,
+// init script, and ttyd are all skipped — only the HTTP server runs.
 const isLocalMode = process.env.MODE === 'local';
 if (isLocalMode) {
     log.info('🔧 Running in LOCAL MODE - Sandbox directories and environment setup will be skipped');
@@ -77,6 +60,7 @@ const serverUrl = process.env.ACTOR_WEB_SERVER_URL || `http://localhost:${port}`
 
 // Retrieve Actor input
 const input = await Actor.getInput<ActorInput>();
+configureIdleTimeout(input?.idleTimeoutSecs);
 
 // Parse and register user-supplied environment variables. Apify decrypts the
 // secret input at runtime; we never log values, only key names.
@@ -117,36 +101,28 @@ if (!isLocalMode) {
 }
 
 // Setup execution environment with dependencies (skip if restored from migration)
-let setupResult;
 if (restoredFromMigration) {
     log.info('Skipping dependency installation (already restored from migration)');
-    setupResult = {
-        success: true,
-        skillsSetup: { installed: [], failed: [] },
-        nodeSetup: { installed: [], failed: [] },
-        pythonSetup: { installed: [], failed: [] },
-        errors: [],
-    };
 } else {
     log.info('Setting up execution environment...');
-    setupResult = await setupExecutionEnvironment({
+    const setupResult = await setupExecutionEnvironment({
         skills,
         nodeDependencies,
         pythonRequirements: input?.pythonRequirements,
     });
-}
 
-if (!setupResult.success) {
-    log.warning('Some dependencies failed to install', {
-        skillsInstalled: setupResult.skillsSetup.installed,
-        skillsFailed: setupResult.skillsSetup.failed,
-        nodeInstalled: setupResult.nodeSetup.installed,
-        nodeFailed: setupResult.nodeSetup.failed,
-        pythonInstalled: setupResult.pythonSetup.installed,
-        pythonFailed: setupResult.pythonSetup.failed,
-    });
-} else {
-    log.info('All dependencies and skills installed successfully');
+    if (!setupResult.success) {
+        log.warning('Some dependencies failed to install', {
+            skillsInstalled: setupResult.skillsSetup.installed,
+            skillsFailed: setupResult.skillsSetup.failed,
+            nodeInstalled: setupResult.nodeSetup.installed,
+            nodeFailed: setupResult.nodeSetup.failed,
+            pythonInstalled: setupResult.pythonSetup.installed,
+            pythonFailed: setupResult.pythonSetup.failed,
+        });
+    } else {
+        log.info('All dependencies and skills installed successfully');
+    }
 }
 
 // Execute init script if provided and not empty
@@ -170,20 +146,6 @@ for (const key of Object.keys(userEnvVars)) {
     delete userEnvVars[key];
 }
 setUserEnvVars({});
-
-// Setup shell environment files
-if (!isLocalMode) {
-    try {
-        log.info('Writing shell environment files...');
-        mkdirSync('/app', { recursive: true });
-        writeFileSync('/app/welcome.sh', WELCOME_SCRIPT);
-        chmodSync('/app/welcome.sh', 0o755);
-        writeFileSync('/app/sandbox_bashrc', SANDBOX_BASHRC);
-        log.info('Shell environment files written successfully');
-    } catch (err) {
-        log.error('Failed to write shell environment files', { error: (err as Error).message });
-    }
-}
 
 // Initialize persistence system (create startup marker for tracking changes)
 // Only needed on fresh starts — after migration restore, the marker is already
@@ -212,456 +174,49 @@ if (!isLocalMode) {
 
 // Mark initialization as complete
 initializationComplete = true;
-lastActivityAt = Date.now();
+touchActivity();
 log.info('Actor startup complete - ready for requests');
 await setStatusMessage('Sandbox is live');
 
-// Initialize bridges
+// Load the bridge configuration (Actor input or persisted file) and start
+// watching it for changes.
 initializeBridges(input?.bridges);
 
-// Create Express app
-const app = express();
+// ============================================================================
+// HTTP server assembly
+// ============================================================================
 
-// Activity tracking middleware
+const app = express();
+// HTTP server wrapper is needed to handle WebSocket upgrades (shell, bridges)
+const server = createServer(app);
+
+// Any non-health request — including doc fetches like /llms.txt — counts as
+// activity and pushes back the idle-shutdown timer. Only /health and the
+// readiness probe are excluded, since they fire automatically.
 app.use((req, _res, next) => {
     const isHealth = req.path === '/health';
     const isProbe = !!req.headers['x-apify-container-server-readiness-probe'];
-
-    // Debug: Log all incoming paths that start with /openclaw
-    if (req.path.startsWith('/openclaw')) {
-        log.info('DEBUG incoming request', {
-            path: req.path,
-            url: req.url,
-            originalUrl: req.originalUrl,
-        });
-    }
-
-    // Any non-health request — including doc fetches like /llms.txt — counts as
-    // activity and pushes back the idle-shutdown timer. Only /health and the
-    // readiness probe are excluded, since they fire automatically.
     if (!isHealth && !isProbe) {
-        lastActivityAt = Date.now();
+        touchActivity();
     }
     next();
 });
 
-// Create HTTP server for WebSocket support
-const server = createServer(app);
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Normalize language aliases to canonical form
- * @param lang - Language string (optional)
- * @returns Normalized language or null if invalid/not provided
- */
-const normalizeLanguage = (lang?: string): 'js' | 'ts' | 'py' | 'shell' | null => {
-    if (!lang) return null;
-    const lower = lang.toLowerCase();
-    const mapping: Record<string, 'js' | 'ts' | 'py' | 'shell'> = {
-        js: 'js',
-        javascript: 'js',
-        ts: 'ts',
-        typescript: 'ts',
-        py: 'py',
-        python: 'py',
-        bash: 'shell',
-        sh: 'shell',
-    };
-    return mapping[lower] || null;
-};
-
-// ============================================================================
-// RESTful Filesystem Endpoints (/fs/*)
-// IMPORTANT: These MUST come before app.use(express.json()) to handle raw bodies
-// ============================================================================
-
-// HEAD /fs and /fs/ - Root directory metadata (must come before wildcard route)
-const handleHeadRoot = async (_req: Request, res: Response) => {
-    try {
-        const filePath = ''; // Empty string resolves to /sandbox
-        log.info('REST HEAD /fs (root) request received', { path: filePath });
-
-        const result = await statPath(filePath);
-
-        if (!result.exists || result.error) {
-            log.warning('REST HEAD /fs (root) failed', { path: filePath, error: result.error });
-            res.status(404).end();
-            return;
-        }
-
-        // Set metadata headers
-        res.setHeader('X-File-Type', result.type);
-        res.setHeader('X-Path', result.path);
-
-        if (result.mtime) {
-            res.setHeader('Last-Modified', result.mtime.toUTCString());
-        }
-
-        log.info('REST HEAD /fs (root) completed successfully', { path: result.path, type: result.type });
-        res.status(200).end();
-    } catch (error) {
-        log.error('REST HEAD /fs (root) error', { error });
-        res.status(500).end();
-    }
-};
-
-app.head('/fs', handleHeadRoot);
-app.head('/fs/', handleHeadRoot);
-
-// GET /fs and /fs/ - List root directory (must come before wildcard route)
-const handleGetRoot = async (req: Request, res: Response) => {
-    try {
-        const filePath = ''; // Empty string resolves to /sandbox
-        const download = req.query.download === '1';
-
-        log.info('REST GET /fs (root) request received', { path: filePath, download });
-
-        // Check if path exists and get type
-        const statResult = await statPath(filePath);
-
-        if (!statResult.exists || statResult.error) {
-            log.warning('REST GET /fs (root) failed', { path: filePath, error: statResult.error });
-            res.status(404).json({ error: statResult.error || 'Path not found', path: filePath });
-            return;
-        }
-
-        if (statResult.type === 'directory') {
-            // Directory: either return JSON listing or ZIP download
-            if (download) {
-                // Download directory as ZIP
-                const zipResult = await createZipArchive(filePath);
-
-                if (zipResult.error || !zipResult.stream) {
-                    log.warning('REST GET /fs (root) ZIP creation failed', { path: filePath, error: zipResult.error });
-                    res.status(500).json({ error: zipResult.error || 'Failed to create ZIP archive' });
-                    return;
-                }
-
-                // Extract directory name for filename
-                res.setHeader('Content-Type', 'application/zip');
-                res.setHeader('Content-Disposition', 'attachment; filename="sandbox.zip"');
-
-                log.info('REST GET /fs (root) streaming ZIP', { path: zipResult.path });
-                zipResult.stream.pipe(res);
-            } else {
-                // Return JSON directory listing
-                const listResult = await listFilesDetailed(filePath);
-
-                if (listResult.error) {
-                    log.warning('REST GET /fs (root) directory listing failed', {
-                        path: filePath,
-                        error: listResult.error,
-                    });
-                    res.status(500).json({ error: listResult.error, path: filePath });
-                    return;
-                }
-
-                log.info('REST GET /fs (root) directory listing completed', {
-                    path: listResult.path,
-                    entryCount: listResult.entries.length,
-                });
-                res.json(listResult);
-            }
-        }
-    } catch (error) {
-        log.error('REST GET /fs (root) error', { error });
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
-    }
-};
-
-app.get('/fs', handleGetRoot);
-app.get('/fs/', handleGetRoot);
-
-// HEAD /fs/* - Get file or directory metadata
-app.head('/fs/*path', async (req: Request, res: Response) => {
-    try {
-        const filePath = String(req.params.path || '/');
-
-        log.info('REST HEAD /fs/* request received', { path: filePath });
-
-        const result = await statPath(filePath);
-
-        if (!result.exists || result.error) {
-            log.warning('REST HEAD /fs/* failed', { path: filePath, error: result.error });
-            res.status(404).end();
-            return;
-        }
-
-        // Set metadata headers
-        res.setHeader('X-File-Type', result.type);
-        res.setHeader('X-Path', result.path);
-
-        if (result.mtime) {
-            res.setHeader('Last-Modified', result.mtime.toUTCString());
-        }
-
-        if (result.type === 'file' && result.size !== undefined) {
-            res.setHeader('Content-Length', result.size.toString());
-            // Detect MIME type from file extension
-            const mimeResult = await readFileBinary(filePath);
-            if (mimeResult.mimeType) {
-                res.setHeader('Content-Type', mimeResult.mimeType);
-            }
-        }
-
-        log.info('REST HEAD /fs/* completed successfully', { path: result.path, type: result.type });
-        res.status(200).end();
-    } catch (error) {
-        log.error('REST HEAD /fs/* error', { error });
-        res.status(500).end();
-    }
-});
-
-// GET /fs/* - Read file or list directory
-app.get('/fs/*path', async (req: Request, res: Response) => {
-    try {
-        const filePath = String(req.params.path || '/');
-        const download = req.query.download === '1';
-
-        log.info('REST GET /fs/* request received', { path: filePath, download });
-
-        // Check if path exists and get type
-        const statResult = await statPath(filePath);
-
-        if (!statResult.exists || statResult.error) {
-            log.warning('REST GET /fs/* failed', { path: filePath, error: statResult.error });
-            res.status(404).json({ error: statResult.error || 'Path not found', path: filePath });
-            return;
-        }
-
-        if (statResult.type === 'directory') {
-            // Directory: either return JSON listing or ZIP download
-            if (download) {
-                // Download directory as ZIP
-                const zipResult = await createZipArchive(filePath);
-
-                if (zipResult.error || !zipResult.stream) {
-                    log.warning('REST GET /fs/* ZIP creation failed', { path: filePath, error: zipResult.error });
-                    res.status(500).json({ error: zipResult.error || 'Failed to create ZIP archive' });
-                    return;
-                }
-
-                // Extract directory name for filename
-                const dirName = filePath.split('/').filter(Boolean).pop() || 'archive';
-                res.setHeader('Content-Type', 'application/zip');
-                res.setHeader('Content-Disposition', `attachment; filename="${dirName}.zip"`);
-
-                log.info('REST GET /fs/* streaming ZIP', { path: zipResult.path });
-                zipResult.stream.pipe(res);
-            } else {
-                // Return JSON directory listing
-                const listResult = await listFilesDetailed(filePath);
-
-                if (listResult.error) {
-                    log.warning('REST GET /fs/* directory listing failed', { path: filePath, error: listResult.error });
-                    res.status(500).json({ error: listResult.error, path: filePath });
-                    return;
-                }
-
-                log.info('REST GET /fs/* directory listing completed', {
-                    path: listResult.path,
-                    entryCount: listResult.entries.length,
-                });
-                res.json(listResult);
-            }
-        } else {
-            // File: return raw bytes with appropriate Content-Type
-            const fileResult = await readFileBinary(filePath);
-
-            if (fileResult.error || !fileResult.content) {
-                log.warning('REST GET /fs/* file read failed', { path: filePath, error: fileResult.error });
-                res.status(404).json({ error: fileResult.error || 'Failed to read file', path: filePath });
-                return;
-            }
-
-            // Set Content-Type
-            res.setHeader('Content-Type', fileResult.mimeType || 'application/octet-stream');
-
-            // Set Content-Disposition for download
-            if (download) {
-                const fileName = filePath.split('/').filter(Boolean).pop() || 'file';
-                res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
-            }
-
-            log.info('REST GET /fs/* file read completed', {
-                path: fileResult.path,
-                size: fileResult.size,
-                mimeType: fileResult.mimeType,
-            });
-            res.send(fileResult.content);
-        }
-    } catch (error) {
-        log.error('REST GET /fs/* error', { error });
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// PUT /fs/* - Write/replace file
-app.put('/fs/*path', express.raw({ type: '*/*', limit: '500mb' }), async (req: Request, res: Response) => {
-    try {
-        const filePath = String(req.params.path || '');
-        const content = req.body;
-
-        log.info('REST PUT /fs/* request received', {
-            path: filePath,
-            contentLength: content?.length,
-            contentType: req.headers['content-type'],
-        });
-
-        if (!filePath || filePath === '/') {
-            log.warning('REST PUT /fs/*: cannot write to root directory');
-            res.status(400).json({ error: 'Cannot write to root directory' });
-            return;
-        }
-
-        if (!content) {
-            log.warning('REST PUT /fs/*: content is required');
-            res.status(400).json({ error: 'Content is required' });
-            return;
-        }
-
-        const result = await writeFileBinary(filePath, content);
-
-        if (!result.success) {
-            log.warning('REST PUT /fs/* failed', { path: filePath, error: result.error });
-            res.status(500).json({ error: result.error, path: filePath });
-            return;
-        }
-
-        log.info('REST PUT /fs/* completed successfully', { path: result.path, size: result.size });
-        res.status(200).json({ success: true, path: result.path, size: result.size });
-    } catch (error) {
-        log.error('REST PUT /fs/* error', { error });
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// POST /fs/* - Create directory or append to file
-app.post('/fs/*path', express.raw({ type: '*/*', limit: '500mb' }), async (req: Request, res: Response) => {
-    try {
-        const filePath = String(req.params.path || '');
-        const mkdir = req.query.mkdir === '1';
-        const append = req.query.append === '1';
-
-        log.info('REST POST /fs/* request received', { path: filePath, mkdir, append });
-
-        if (!filePath || filePath === '/') {
-            log.warning('REST POST /fs/*: cannot operate on root directory');
-            res.status(400).json({ error: 'Cannot operate on root directory' });
-            return;
-        }
-
-        if (!mkdir && !append) {
-            log.warning('REST POST /fs/*: either mkdir=1 or append=1 query parameter is required');
-            res.status(400).json({ error: 'Either mkdir=1 or append=1 query parameter is required' });
-            return;
-        }
-
-        if (mkdir && append) {
-            log.warning('REST POST /fs/*: cannot use both mkdir and append');
-            res.status(400).json({ error: 'Cannot use both mkdir=1 and append=1' });
-            return;
-        }
-
-        if (mkdir) {
-            // Create directory
-            const result = await createDirectory(filePath);
-
-            if (!result.success) {
-                log.warning('REST POST /fs/* mkdir failed', { path: filePath, error: result.error });
-                res.status(500).json({ error: result.error, path: filePath });
-                return;
-            }
-
-            log.info('REST POST /fs/* mkdir completed successfully', { path: result.path });
-            res.status(201).json({ success: true, path: result.path, type: 'directory' });
-        } else {
-            // Append to file
-            const content = req.body;
-
-            if (!content) {
-                log.warning('REST POST /fs/* append: content is required');
-                res.status(400).json({ error: 'Content is required for append operation' });
-                return;
-            }
-
-            const result = await appendFile(filePath, content);
-
-            if (!result.success) {
-                log.warning('REST POST /fs/* append failed', { path: filePath, error: result.error });
-                res.status(500).json({ error: result.error, path: filePath });
-                return;
-            }
-
-            log.info('REST POST /fs/* append completed successfully', { path: result.path, size: result.size });
-            res.status(200).json({ success: true, path: result.path, size: result.size });
-        }
-    } catch (error) {
-        log.error('REST POST /fs/* error', { error });
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// DELETE /fs/* - Delete file or directory
-app.delete('/fs/*path', async (req: Request, res: Response) => {
-    try {
-        const filePath = String(req.params.path || '');
-        const recursive = req.query.recursive === '1';
-
-        log.info('REST DELETE /fs/* request received', { path: filePath, recursive });
-
-        if (!filePath || filePath === '/') {
-            log.warning('REST DELETE /fs/*: cannot delete root directory');
-            res.status(400).json({ error: 'Cannot delete root directory' });
-            return;
-        }
-
-        const result = await deleteFileOrDirectory(filePath, recursive);
-
-        if (!result.success) {
-            // Check if error is due to non-empty directory
-            if (result.error?.includes('not empty')) {
-                log.warning('REST DELETE /fs/* failed - directory not empty', { path: filePath, error: result.error });
-                res.status(409).json({ error: result.error, path: filePath, code: 'DIRECTORY_NOT_EMPTY' });
-                return;
-            }
-
-            log.warning('REST DELETE /fs/* failed', { path: filePath, error: result.error });
-            res.status(500).json({ error: result.error, path: filePath });
-            return;
-        }
-
-        log.info('REST DELETE /fs/* completed successfully', { path: result.path });
-        res.status(200).json({ success: true, path: result.path, deleted: true });
-    } catch (error) {
-        log.error('REST DELETE /fs/* error', { error });
-        const err = error as Error;
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ============================================================================
-// JSON-based REST Endpoints (require express.json middleware)
-// ============================================================================
+// RESTful filesystem API. MUST be mounted before express.json() so PUT/POST
+// bodies stay raw (the JSON parser would consume them).
+app.use('/fs', createFsRouter());
 
 // Middleware for JSON parsing (applied to routes below)
 app.use(express.json({ limit: '50mb' }));
 
-// Landing page endpoint
+// Landing page
 app.get('/', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(
         getLandingPageHTML({
             serverUrl,
             isLocalMode,
-            idleTimeoutSecs,
+            idleTimeoutSecs: getIdleTimeoutSecs(),
         }),
     );
 });
@@ -679,95 +234,11 @@ app.get('/browse/*path', handleBrowse);
 // LLMs.txt endpoint (Markdown documentation for LLMs)
 app.get('/llms.txt', (_req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
-    res.send(getLLMsMarkdown({ serverUrl, idleTimeoutSecs }));
+    res.send(getLLMsMarkdown({ serverUrl, idleTimeoutSecs: getIdleTimeoutSecs() }));
 });
 
-// ============================================================================
-// Bridges configuration endpoints
-// ============================================================================
-
-// GET /bridges - Get current bridges
-app.get('/bridges', (_req: Request, res: Response) => {
-    try {
-        const bridges = getBridges();
-        res.json({ bridges });
-    } catch (error) {
-        log.error('Failed to get bridges', { error: (error as Error).message });
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
-
-// PUT /bridges - Replace all bridges
-app.put('/bridges', (req: Request, res: Response) => {
-    try {
-        const { bridges } = req.body;
-
-        if (!Array.isArray(bridges)) {
-            res.status(400).json({ error: 'bridges must be an array' });
-            return;
-        }
-
-        // Validate each bridge
-        for (const bridge of bridges) {
-            if (!bridge.path || typeof bridge.path !== 'string') {
-                res.status(400).json({ error: 'Each bridge must have a path string' });
-                return;
-            }
-            if (!bridge.target || typeof bridge.target !== 'string') {
-                res.status(400).json({ error: 'Each bridge must have a target string (full URL like http://127.0.0.1:3000/myapp)' });
-                return;
-            }
-        }
-
-        saveBridges(bridges);
-        log.info('Bridges updated via API', { count: bridges.length });
-        res.json({ success: true, bridges: getBridges() });
-    } catch (error) {
-        log.error('Failed to update bridges', { error: (error as Error).message });
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
-
-// POST /bridges - Add a single bridge
-app.post('/bridges', (req: Request, res: Response) => {
-    try {
-        const { path, target } = req.body;
-
-        if (!path || typeof path !== 'string') {
-            res.status(400).json({ error: 'path is required (e.g., /myapp)' });
-            return;
-        }
-        if (!target || typeof target !== 'string') {
-            res.status(400).json({ error: 'target is required (full URL like http://127.0.0.1:3000/myapp)' });
-            return;
-        }
-
-        addBridge({ path, target });
-        log.info('Bridge added via API', { path, target });
-        res.json({ success: true, bridges: getBridges() });
-    } catch (error) {
-        log.error('Failed to add bridge', { error: (error as Error).message });
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
-
-// DELETE /bridges/:path - Remove a bridge
-app.delete('/bridges/*path', (req: Request, res: Response) => {
-    try {
-        const pathToRemove = `/${  String(req.params.path || '')}`;
-
-        const removed = removeBridge(pathToRemove);
-        if (removed) {
-            log.info('Bridge removed via API', { path: pathToRemove });
-            res.json({ success: true, removed: pathToRemove, bridges: getBridges() });
-        } else {
-            res.status(404).json({ error: 'Bridge not found', path: pathToRemove });
-        }
-    } catch (error) {
-        log.error('Failed to remove bridge', { error: (error as Error).message });
-        res.status(500).json({ error: (error as Error).message });
-    }
-});
+// Bridges configuration API
+app.use('/bridges', createBridgesRouter());
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
@@ -787,536 +258,43 @@ app.get('/health', (_req: Request, res: Response) => {
         return;
     }
 
-    const body: Record<string, unknown> = { status: 'healthy', idleTimeoutSecs };
-    if (idleTimeoutSecs > 0) {
-        const elapsedSecs = Math.floor((Date.now() - lastActivityAt) / 1000);
-        body.remainingSecs = Math.max(0, idleTimeoutSecs - elapsedSecs);
+    const body: Record<string, unknown> = { status: 'healthy', idleTimeoutSecs: getIdleTimeoutSecs() };
+    const remainingSecs = getRemainingSecs();
+    if (remainingSecs !== null) {
+        body.remainingSecs = remainingSecs;
     }
     res.json(body);
 });
 
-// MCP endpoint using proper StreamableHTTPServerTransport
-app.post('/mcp', async (req: Request, res: Response) => {
-    log.info('MCP request received', { body: req.body });
-    const mcpServer = createMcpServer();
-    try {
-        const transport: StreamableHTTPServerTransport = new StreamableHTTPServerTransport({
-            sessionIdGenerator: undefined,
-        });
-        await mcpServer.connect(transport);
-        await transport.handleRequest(req, res, req.body);
-        res.on('close', () => {
-            log.info('MCP request closed');
-            void transport.close();
-            void mcpServer.close();
-        });
-    } catch (error) {
-        log.error('MCP request error', { error });
-        if (!res.headersSent) {
-            res.status(500).json({
-                jsonrpc: '2.0',
-                error: {
-                    code: -32603,
-                    message: 'Internal server error',
-                },
-                id: null,
-            });
-        }
-    }
-});
+// MCP endpoint (Streamable HTTP transport)
+app.post('/mcp', handleMcp);
 
 // Execute shell command or code (unified endpoint)
-app.post('/exec', async (req: Request, res: Response) => {
-    try {
-        const { command, language, cwd, timeoutSecs } = req.body;
+app.post('/exec', handleExec);
 
-        log.info('REST /exec request received', { command: command?.substring(0, 100), language, cwd, timeoutSecs });
-
-        // Validate command is required
-        if (!command) {
-            log.debug('REST /exec: command is required');
-            res.status(400).json({
-                error: 'Command is required',
-            });
-            return;
-        }
-
-        // Normalize language aliases
-        const normalizedLang = normalizeLanguage(language);
-
-        // Validate language if provided
-        if (language && !normalizedLang) {
-            log.debug('REST /exec: invalid language', { language });
-            res.status(400).json({
-                error: `Invalid language: ${language}. Supported: js, javascript, ts, typescript, py, python, bash, sh`,
-            });
-            return;
-        }
-
-        // Convert timeout from seconds to milliseconds
-        const timeoutMs = timeoutSecs ? timeoutSecs * 1000 : undefined;
-
-        let result;
-
-        // Route to appropriate executor based on language
-        if (!normalizedLang || normalizedLang === 'shell') {
-            // Shell command execution
-            log.debug('REST /exec: executing shell command', { cwd, timeoutMs });
-            result = await runCommand(command, cwd, timeoutMs);
-            result = { ...result, language: 'shell' };
-        } else {
-            // Code execution (js, ts, py)
-            log.debug('REST /exec: executing code', { language: normalizedLang, cwd, timeoutMs });
-            result = await executeCode(command, normalizedLang, timeoutMs, cwd);
-        }
-
-        // Return appropriate status code
-        if (result.exitCode !== 0) {
-            log.debug('REST /exec completed with error', { language: result.language, exitCode: result.exitCode });
-            res.status(500).json(result);
-            return;
-        }
-
-        log.info('REST /exec completed successfully', { language: result.language });
-        res.json(result);
-    } catch (error) {
-        log.error('REST /exec error', { error });
-        const err = error as Error;
-        res.status(500).json({
-            error: err.message,
-            stdout: '',
-            stderr: '',
-            exitCode: 1,
-            language: 'shell',
-        });
-    }
-});
-
-// ============================================================================
-// Shell (ttyd) Implementation
-// ============================================================================
-const shellPort = 7681;
-
-// ttyd's last words: the tail of its stdout/stderr (or a spawn error). Recorded
-// so a crash — e.g. a missing shared library — shows up in the Actor log and in
-// the /shell proxy response instead of a bare exit code. The delay grows as ttyd
-// keeps failing to start (see nextTtydRestartDelayMs).
-let lastTtydError = '';
-let ttydRestartDelayMs = TTYD_RESTART_MIN_MS;
-
-// Spawn ttyd process
-const spawnTtyd = () => {
-    log.info('Spawning ttyd process...', { port: shellPort });
-    const startedAt = Date.now();
-
-    // Run ttyd with custom bashrc for better UX and environment alignment. Pipe
-    // its stdio (rather than ignoring it) so a startup failure is captured.
-    const ttyd = spawn('ttyd', ['-p', shellPort.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
-        stdio: ['ignore', 'pipe', 'pipe'],
-        cwd: SANDBOX_DIR,
-        env: { ...process.env },
-    });
-
-    // Keep only the tail of ttyd's output — its startup/error messages are short.
-    let recentOutput = '';
-    const capture = (chunk: Buffer): void => {
-        recentOutput = appendTtydOutput(recentOutput, chunk.toString());
-    };
-    ttyd.stdout?.on('data', capture);
-    ttyd.stderr?.on('data', capture);
-
-    // Schedule exactly one restart per spawn: a failed spawn emits 'error' (no
-    // 'exit'), a started process emits 'exit'; guard against both firing.
-    let settled = false;
-    const restartAfter = (crashed: boolean): void => {
-        if (settled) return;
-        settled = true;
-        const delay = crashed ? ttydRestartDelayMs : TTYD_RESTART_MIN_MS;
-        ttydRestartDelayMs = nextTtydRestartDelayMs(ttydRestartDelayMs, crashed);
-        setTimeout(spawnTtyd, delay);
-    };
-
-    ttyd.on('error', (err) => {
-        lastTtydError = err.message;
-        log.error('Failed to start ttyd', { error: err.message });
-        restartAfter(true);
-    });
-
-    ttyd.on('exit', (code, signal) => {
-        const aliveMs = Date.now() - startedAt;
-        const output = recentOutput.trim();
-        if (output) lastTtydError = output;
-
-        // A fast exit means ttyd never really came up (missing shared library,
-        // port already bound, bad args). Shout, since the old fixed-5s retry with
-        // no detail produced an invisible crash loop behind "Shell Proxy Error".
-        const crashed = isTtydStartupCrash(aliveMs);
-        if (crashed) {
-            log.error('ttyd exited immediately — interactive shell is unavailable', {
-                code,
-                signal,
-                aliveMs,
-                output: output || '(no output captured)',
-            });
-        } else {
-            log.warning('ttyd process exited; restarting', { code, signal, aliveMs });
-        }
-        restartAfter(crashed);
-    });
-};
-
+// Interactive shell: /shell HTTP traffic is proxied to ttyd; the ttyd process
+// itself only runs in production mode (the proxy then reports it unavailable).
+registerShellRoutes(app);
 if (!isLocalMode) {
-    spawnTtyd();
+    startShellBackend();
 }
 
-// ============================================================================
-// Terminal disconnect messaging
-// ============================================================================
-//
-// There is deliberately no server-side shutdown banner. Most stops (run timeout,
-// hard abort, platform scale-down) kill the container with a signal and no
-// advance event — the Apify SDK installs no SIGTERM/SIGINT handlers, it's driven
-// by the platform events WebSocket — and a dying process can't reliably flush a
-// message to the browser anyway. Instead the terminal page relabels ttyd's own
-// reconnect overlay client-side; see injectTerminalReconnectScript in
-// templates/shell.ts (it shows "Actor probably finished" when a retry fails).
+// Bridges: forward requests on exposed paths to local servers. Registered
+// last so explicit endpoints always win over bridged paths.
+initializeBridgeProxies();
+app.use(bridgeRequestHandler);
 
-// Manual HTTP Proxy for ttyd
-app.all('/shell{*rest}', (req, res) => {
-    let path = req.url.replace(/^\/shell/, '') || '/';
-    // Ensure path starts with / (handle query strings like ?arg=...)
-    if (path.startsWith('?')) {
-        path = `/${  path}`;
-    }
-    path = translateLaunchParam(path);
-    // Ask ttyd for an uncompressed response so the terminal HTML can be rewritten
-    // (see injectTerminalReconnectScript below). ttyd's assets are tiny, so losing
-    // gzip here is negligible.
-    const headers = { ...req.headers, 'accept-encoding': 'identity' };
-    const options = {
-        hostname: '127.0.0.1',
-        port: shellPort,
-        path,
-        method: req.method,
-        headers,
-    };
-
-    const proxyReq = http.request(options, (proxyRes) => {
-        // Inject the client-side reconnect notice into ttyd's terminal page. The
-        // server can't reliably push a shutdown message as the container is killed,
-        // so the browser relabels ttyd's reconnect overlay instead. Only the HTML
-        // document is rewritten; every other asset and status is piped through.
-        const isHtml = (proxyRes.headers['content-type'] || '').includes('text/html');
-        if (!isHtml) {
-            if (proxyRes.statusCode) {
-                res.writeHead(proxyRes.statusCode, proxyRes.headers);
-            }
-            proxyRes.pipe(res);
-            return;
-        }
-
-        const chunks: Buffer[] = [];
-        proxyRes.on('data', (chunk: Buffer) => chunks.push(chunk));
-        proxyRes.on('end', () => {
-            const html = injectTerminalReconnectScript(Buffer.concat(chunks).toString('utf8'));
-            const outHeaders = { ...proxyRes.headers };
-            // The body length changed and is now fixed: drop any stale length/
-            // encoding framing and set the real one.
-            delete outHeaders['content-encoding'];
-            delete outHeaders['transfer-encoding'];
-            outHeaders['content-length'] = Buffer.byteLength(html).toString();
-            res.writeHead(proxyRes.statusCode || 200, outHeaders);
-            res.end(html);
-        });
-        proxyRes.on('error', (err) => {
-            log.error('Shell proxy response error', { error: err.message });
-            if (!res.headersSent) res.status(502).type('text/plain').send('Shell proxy error');
-        });
-    });
-
-    proxyReq.on('error', (err) => {
-        // ECONNREFUSED means ttyd isn't listening — it almost always crashed on
-        // startup (see spawnTtyd, which records its last output in lastTtydError).
-        // Surface that as a 503 instead of an opaque 500 so the cause is visible.
-        const ttydDown = (err as NodeJS.ErrnoException).code === 'ECONNREFUSED';
-        log.error('Manual proxy error', { error: err.message, ttydDown });
-        if (!res.headersSent) {
-            if (ttydDown) {
-                res.status(503).type('text/plain').send(buildShellUnavailableMessage(lastTtydError));
-            } else {
-                res.status(502).type('text/plain').send(`Shell proxy error: ${err.message}`);
-            }
-        }
-    });
-
-    req.pipe(proxyReq);
-});
-
-// Manual WebSocket Proxy for ttyd
-const wsProxy = httpProxy.createProxyServer({
-    target: `http://127.0.0.1:${shellPort}`,
-    ws: true,
-});
-
-// Without this handler a WebSocket upgrade to a down ttyd emits an 'error' with
-// no listener, which Node escalates to an uncaught exception that can take down
-// the whole server. ttyd is restarted by spawnTtyd; just close the browser
-// socket so the terminal shows its reconnect overlay and retries.
-wsProxy.on('error', (err, _req, resOrSocket) => {
-    log.warning('Shell WebSocket proxy error', { error: (err as Error).message });
-    const socket = resOrSocket as Duplex | undefined;
-    if (socket && typeof socket.destroy === 'function' && !socket.destroyed) {
-        socket.destroy();
-    }
-});
-
+// WebSocket upgrades go to the shell or a bridge; anything else is refused.
 server.on('upgrade', (req, socket, head) => {
-    if (req.url?.startsWith('/shell')) {
-        req.url = req.url.replace(/^\/shell/, '') || '/';
-        req.url = translateLaunchParam(req.url);
-        log.info('Proxying shell WebSocket upgrade', { url: req.url });
-
-        // Track activity on WebSocket data
-        socket.on('data', () => {
-            lastActivityAt = Date.now();
-        });
-
-        wsProxy.ws(req, socket as Duplex, head);
-    } else {
-        // Check bridges
-        let matchedBridge: Bridge | null = null;
-        let matchedPath = '';
-
-        const reqPath = req.url || '/';
-        // Extract just the path without query string for matching
-        const pathOnly = reqPath.split('?')[0];
-
-        for (const bridge of getBridges()) {
-            if (pathOnly.startsWith(bridge.path) && bridge.path.length > matchedPath.length) {
-                matchedBridge = bridge;
-                matchedPath = bridge.path;
-            }
-        }
-
-        if (matchedBridge && bridgeProxies.has(matchedBridge.path)) {
-            const entry = bridgeProxies.get(matchedBridge.path)!;
-
-            // Get the extra path after the exposed path
-            let extraPath = pathOnly.slice(matchedBridge.path.length) || '';
-            const queryString = reqPath.includes('?') ? reqPath.slice(reqPath.indexOf('?')) : '';
-
-            // Build the new URL: targetPath + extraPath + query string
-            // Avoid double slashes when joining paths
-            let finalPath = entry.targetPath;
-            if (extraPath) {
-                if (finalPath.endsWith('/') && extraPath.startsWith('/')) {
-                    extraPath = extraPath.slice(1);
-                }
-                if (!finalPath.endsWith('/') && !extraPath.startsWith('/')) {
-                    finalPath += '/';
-                }
-                finalPath += extraPath;
-            }
-
-            req.url = finalPath + queryString;
-            if (!req.url.startsWith('/')) {
-                req.url = `/${  req.url}`;
-            }
-
-            log.info('Proxying dynamic WebSocket upgrade', {
-                exposedPath: matchedBridge.path,
-                targetUrl: entry.targetOrigin + req.url,
-            });
-
-            // Track activity
-            socket.on('data', () => {
-                lastActivityAt = Date.now();
-            });
-
-            entry.proxy.ws(req, socket as Duplex, head);
-        }
-    }
+    if (handleShellUpgrade(req, socket, head)) return;
+    if (handleBridgeUpgrade(req, socket, head)) return;
+    socket.destroy();
 });
 
 // ============================================================================
-// Bridges: dynamic reverse proxies for local servers
+// Start
 // ============================================================================
 
-// Live reverse-proxy instances backing each bridge
-interface BridgeProxy {
-    proxy: ReturnType<typeof httpProxy.createProxyServer>;
-    targetOrigin: string;
-    targetPath: string;
-}
-const bridgeProxies = new Map<string, BridgeProxy>();
-
-/**
- * Create or update the reverse proxy backing a bridge
- */
-const setupBridge = (bridge: Bridge): void => {
-    // Normalize target URL
-    let targetUrl = bridge.target;
-    if (!targetUrl.startsWith('http://') && !targetUrl.startsWith('https://')) {
-        targetUrl = `http://${targetUrl}`;
-    }
-
-    // Parse the target URL to extract origin and path
-    let targetOrigin: string;
-    let targetPath: string;
-    try {
-        const url = new URL(targetUrl);
-        targetOrigin = `${url.protocol}//${url.host}`;
-        targetPath = url.pathname || '/';
-        // Keep the target path as-is (preserve trailing slash if present)
-    } catch {
-        log.error('Invalid target URL', { target: targetUrl });
-        return;
-    }
-
-    // Remove existing proxy if any
-    if (bridgeProxies.has(bridge.path)) {
-        const oldEntry = bridgeProxies.get(bridge.path);
-        oldEntry?.proxy.close();
-    }
-
-    // Create new proxy targeting just the origin
-    const proxy = httpProxy.createProxyServer({
-        target: targetOrigin,
-        changeOrigin: true,
-        // Don't rewrite redirects - we remap paths ourselves
-        autoRewrite: false,
-    });
-
-    proxy.on('error', (err, _req, res) => {
-        log.error('Dynamic proxy error', { path: bridge.path, target: targetUrl, error: err.message });
-        if (res && 'writeHead' in res && !res.headersSent) {
-            res.writeHead(502, { 'Content-Type': 'text/plain' });
-            res.end(`Proxy error: target server at ${targetUrl} not available`);
-        }
-    });
-
-    // Rewrite Location headers in redirects to map target paths back to exposed paths
-    proxy.on('proxyRes', (proxyRes) => {
-        const {location} = proxyRes.headers;
-        if (location && typeof location === 'string') {
-            log.info('Proxy response with Location header', {
-                statusCode: proxyRes.statusCode,
-                location,
-                targetPath,
-                exposedPath: bridge.path
-            });
-            // If the location starts with the target path, rewrite it to the exposed path
-            if (location.startsWith(targetPath)) {
-                const newLocation = bridge.path + location.slice(targetPath.length);
-                proxyRes.headers.location = newLocation;
-                log.info('Rewrote redirect Location header', {
-                    original: location,
-                    rewritten: newLocation,
-                });
-            }
-        }
-    });
-
-    bridgeProxies.set(bridge.path, { proxy, targetOrigin, targetPath });
-    log.info('Proxy configured', { exposedPath: bridge.path, targetOrigin, targetPath });
-};
-
-/**
- * Tear down the reverse proxy for a bridge path
- */
-const removeBridgeProxy = (path: string): void => {
-    if (bridgeProxies.has(path)) {
-        const entry = bridgeProxies.get(path);
-        entry?.proxy.close();
-        bridgeProxies.delete(path);
-        log.info('Proxy removed', { path });
-    }
-};
-
-// Initialize proxies from current config
-for (const bridge of getBridges()) {
-    setupBridge(bridge);
-}
-
-// Listen for config changes and update proxies
-onBridgesChange((newBridges) => {
-    // Find removed bridges
-    const newPaths = new Set(newBridges.map((m) => m.path));
-    for (const path of bridgeProxies.keys()) {
-        if (!newPaths.has(path)) {
-            removeBridgeProxy(path);
-        }
-    }
-
-    // Add/update bridges
-    for (const bridge of newBridges) {
-        setupBridge(bridge);
-    }
-});
-
-// Bridge route handler - must be added BEFORE the 404 handler
-// This catches all requests to mapped paths
-app.use((req: Request, res: Response, next) => {
-    // Find the matching bridge (longest path match)
-    let matchedBridge: Bridge | null = null;
-    let matchedPath = '';
-
-    for (const bridge of getBridges()) {
-        if (req.path.startsWith(bridge.path) && bridge.path.length > matchedPath.length) {
-            matchedBridge = bridge;
-            matchedPath = bridge.path;
-        }
-    }
-
-    if (matchedBridge && bridgeProxies.has(matchedBridge.path)) {
-        const entry = bridgeProxies.get(matchedBridge.path)!;
-
-        // Get the extra path after the exposed path (e.g., /openclaw/foo -> /foo)
-        let extraPath = req.path.slice(matchedBridge.path.length) || '';
-
-        // Build the new URL: targetPath + extraPath + query string
-        const queryString = req.url.includes('?') ? req.url.slice(req.url.indexOf('?')) : '';
-
-        // Avoid double slashes when joining paths
-        let finalPath = entry.targetPath;
-        if (extraPath) {
-            // If targetPath ends with / and extraPath starts with /, remove one
-            if (finalPath.endsWith('/') && extraPath.startsWith('/')) {
-                extraPath = extraPath.slice(1);
-            }
-            // If neither has a slash between them, add one
-            if (!finalPath.endsWith('/') && !extraPath.startsWith('/')) {
-                finalPath += '/';
-            }
-            finalPath += extraPath;
-        }
-
-        req.url = finalPath + queryString;
-
-        // Ensure URL starts with /
-        if (!req.url.startsWith('/')) {
-            req.url = `/${  req.url}`;
-        }
-
-        log.info('Proxying request', {
-            originalPath: req.path,
-            exposedPath: matchedBridge.path,
-            extraPath,
-            targetPath: entry.targetPath,
-            finalUrl: req.url,
-            targetUrl: entry.targetOrigin + req.url,
-        });
-
-        // Track activity
-        lastActivityAt = Date.now();
-
-        entry.proxy.web(req, res);
-    } else {
-        next();
-    }
-});
-
-// Start server
 server.listen(port, () => {
     log.info(`Apify AI Code Sandbox listening on port ${port}`);
     log.info(`Server URL: ${serverUrl}`);
@@ -1343,18 +321,5 @@ server.listen(port, () => {
 
     console.log('=====================================\n');
 
-    // Start idle timeout check
-    idleTimeoutSecs = input?.idleTimeoutSecs ?? DEFAULT_IDLE_TIMEOUT_SECS;
-    if (idleTimeoutSecs > 0) {
-        log.info(`Idle timeout monitor started (${idleTimeoutSecs}s)`);
-        setInterval(async () => {
-            const idleTimeMs = Date.now() - lastActivityAt;
-            if (idleTimeMs > idleTimeoutSecs * 1000) {
-                const message = `Sandbox shut down after ${Math.round(idleTimeoutSecs)} seconds of inactivity.`;
-                log.warning(message);
-                await setStatusMessage('Sandbox is shutting down');
-                await Actor.exit({ statusMessage: message });
-            }
-        }, 30000); // Check every 30 seconds
-    }
+    startIdleMonitor();
 });

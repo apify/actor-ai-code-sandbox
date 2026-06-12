@@ -221,6 +221,34 @@ export const listFiles = async (
     }
 };
 
+/** Canonical execution languages; 'shell' runs via bash, the rest via interpreters. */
+export type ExecLanguage = 'js' | 'ts' | 'py' | 'shell';
+
+/** Accepted language aliases mapped to their canonical names. */
+const LANGUAGE_ALIASES: Record<string, ExecLanguage> = {
+    js: 'js',
+    javascript: 'js',
+    ts: 'ts',
+    typescript: 'ts',
+    py: 'py',
+    python: 'py',
+    bash: 'shell',
+    sh: 'shell',
+};
+
+/** Human-readable list of accepted language values, for input-error messages. */
+export const SUPPORTED_LANGUAGES = Object.keys(LANGUAGE_ALIASES).join(', ');
+
+/**
+ * Normalize a language alias to canonical form. Returns null when the value is
+ * missing or unrecognized — callers must treat a provided-but-unrecognized
+ * language as an input error rather than defaulting to shell.
+ */
+export const normalizeLanguage = (lang?: string): ExecLanguage | null => {
+    if (!lang) return null;
+    return LANGUAGE_ALIASES[lang.toLowerCase()] || null;
+};
+
 /**
  * Execute code in a specified language (JS, TS, or Python)
  *
@@ -349,6 +377,27 @@ export const executeCode = async (
             }
         }
     }
+};
+
+/**
+ * Run a shell command or code snippet, dispatching on the normalized language
+ * (null or 'shell' → bash via runCommand; js/ts/py → executeCode). Shared
+ * entry point for the /exec REST endpoint and the MCP `execute` tool.
+ */
+export const execute = async (options: {
+    command: string;
+    language: ExecLanguage | null;
+    cwd?: string;
+    timeoutSecs?: number;
+}): Promise<{ stdout: string; stderr: string; exitCode: number; language: string }> => {
+    const { command, language, cwd, timeoutSecs } = options;
+    const timeoutMs = timeoutSecs ? timeoutSecs * 1000 : undefined;
+
+    if (!language || language === 'shell') {
+        const result = await runCommand(command, cwd, timeoutMs);
+        return { ...result, language: 'shell' };
+    }
+    return executeCode(command, language, timeoutMs, cwd);
 };
 
 /**
@@ -713,10 +762,11 @@ export const createZipArchive = async (
             zlib: { level: 6 }, // Compression level
         });
 
-        // Add error handling for the archive
+        // Log archive errors instead of throwing: this fires asynchronously while
+        // the archive streams, and throwing from an event handler would crash the
+        // process. The consumer sees the stream end/error instead.
         archive.on('error', (err) => {
             log.error('Archive error', { error: err.message });
-            throw err;
         });
 
         // Add directory contents to archive
