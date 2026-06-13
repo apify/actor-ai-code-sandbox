@@ -4,28 +4,19 @@ import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { log } from 'apify';
 import * as z from 'zod';
 
-import { executeCode, listFiles, readFile, runCommand, writeFile } from './operations.js';
+import { execute, listFiles, normalizeLanguage, readFile, SUPPORTED_LANGUAGES, writeFile } from './operations.js';
 
-/**
- * Normalize language aliases to canonical form
- * @param lang - Language string (optional)
- * @returns Normalized language or null if invalid/not provided
- */
-const normalizeLanguage = (lang?: string): 'js' | 'ts' | 'py' | 'shell' | null => {
-    if (!lang) return null;
-    const lower = lang.toLowerCase();
-    const mapping: Record<string, 'js' | 'ts' | 'py' | 'shell'> = {
-        js: 'js',
-        javascript: 'js',
-        ts: 'ts',
-        typescript: 'ts',
-        py: 'py',
-        python: 'py',
-        bash: 'shell',
-        sh: 'shell',
-    };
-    return mapping[lower] || null;
-};
+/** Wrap an operation result as an MCP tool result (pretty-printed JSON). */
+const jsonResult = (value: unknown, isError = false): CallToolResult => ({
+    content: [{ type: 'text', text: JSON.stringify(value, null, 2) }],
+    ...(isError ? { isError: true } : {}),
+});
+
+/** Wrap an error message as a failed MCP tool result. */
+const errorResult = (message: string): CallToolResult => ({
+    content: [{ type: 'text', text: message }],
+    isError: true,
+});
 
 /**
  * Creates and configures the MCP server with all sandbox tools
@@ -78,61 +69,20 @@ export const createMcpServer = () => {
                     timeoutSecs,
                 });
 
-                // Normalize language
                 const normalizedLang = normalizeLanguage(language);
-
-                // Validate language
                 if (language && !normalizedLang) {
                     log.warning('MCP execute tool: invalid language', { language });
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: `Invalid language: ${language}. Supported: js, javascript, ts, typescript, py, python, bash, sh`,
-                            },
-                        ],
-                        isError: true,
-                    };
+                    return errorResult(`Invalid language: ${language}. Supported: ${SUPPORTED_LANGUAGES}`);
                 }
 
-                // Convert timeout from seconds to milliseconds
-                const timeoutMs = timeoutSecs ? timeoutSecs * 1000 : undefined;
-
-                let result;
-
-                // Route to appropriate executor
-                if (!normalizedLang || normalizedLang === 'shell') {
-                    // Shell command execution
-                    result = await runCommand(command, cwd, timeoutMs);
-                    result = { ...result, language: 'shell' };
-                } else {
-                    // Code execution
-                    result = await executeCode(command, normalizedLang, timeoutMs, cwd);
-                }
+                const result = await execute({ command, language: normalizedLang, cwd, timeoutSecs });
 
                 log.info('MCP execute tool completed', { language: result.language, exitCode: result.exitCode });
-
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2),
-                        },
-                    ],
-                    isError: result.exitCode !== 0,
-                };
+                return jsonResult(result, result.exitCode !== 0);
             } catch (error) {
                 const err = error as Error;
                 log.error('MCP execute tool error', { error: err.message });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error executing: ${err.message}`,
-                        },
-                    ],
-                    isError: true,
-                };
+                return errorResult(`Error executing: ${err.message}`);
             }
         },
     );
@@ -155,38 +105,15 @@ export const createMcpServer = () => {
 
                 if (!result.success) {
                     log.warning('MCP write-file tool failed', { path, error: result.error });
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: JSON.stringify(result, null, 2),
-                            },
-                        ],
-                        isError: true,
-                    };
+                    return jsonResult(result, true);
                 }
 
                 log.info('MCP write-file tool completed successfully', { path });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2),
-                        },
-                    ],
-                };
+                return jsonResult(result);
             } catch (error) {
                 const err = error as Error;
                 log.error('MCP write-file tool error', { path, error: err.message });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error writing file: ${err.message}`,
-                        },
-                    ],
-                    isError: true,
-                };
+                return errorResult(`Error writing file: ${err.message}`);
             }
         },
     );
@@ -208,38 +135,15 @@ export const createMcpServer = () => {
 
                 if (result.error) {
                     log.warning('MCP read-file tool failed', { path, error: result.error });
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: JSON.stringify(result, null, 2),
-                            },
-                        ],
-                        isError: true,
-                    };
+                    return jsonResult(result, true);
                 }
 
                 log.info('MCP read-file tool completed successfully', { path, contentLength: result.content?.length });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2),
-                        },
-                    ],
-                };
+                return jsonResult(result);
             } catch (error) {
                 const err = error as Error;
                 log.error('MCP read-file tool error', { path, error: err.message });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error reading file: ${err.message}`,
-                        },
-                    ],
-                    isError: true,
-                };
+                return errorResult(`Error reading file: ${err.message}`);
             }
         },
     );
@@ -260,41 +164,18 @@ export const createMcpServer = () => {
 
                 if (result.error) {
                     log.warning('MCP list-files tool failed', { path, error: result.error });
-                    return {
-                        content: [
-                            {
-                                type: 'text',
-                                text: JSON.stringify(result, null, 2),
-                            },
-                        ],
-                        isError: true,
-                    };
+                    return jsonResult(result, true);
                 }
 
                 log.info('MCP list-files tool completed successfully', {
                     path: result.path,
                     fileCount: result.files.length,
                 });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: JSON.stringify(result, null, 2),
-                        },
-                    ],
-                };
+                return jsonResult(result);
             } catch (error) {
                 const err = error as Error;
                 log.error('MCP list-files tool error', { path, error: err.message });
-                return {
-                    content: [
-                        {
-                            type: 'text',
-                            text: `Error listing files: ${err.message}`,
-                        },
-                    ],
-                    isError: true,
-                };
+                return errorResult(`Error listing files: ${err.message}`);
             }
         },
     );

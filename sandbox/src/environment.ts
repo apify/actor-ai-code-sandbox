@@ -10,21 +10,15 @@ import {
     INIT_SCRIPT_HEARTBEAT_INTERVAL_MS,
     INIT_SCRIPT_TIMEOUT_MS,
     JS_TS_CODE_DIR,
+    NODE_MODULES_DIR,
+    PYTHON_BIN_DIR,
     PYTHON_CODE_DIR,
+    PYTHON_VENV_DIR,
     SANDBOX_DIR,
 } from './consts.js';
 import { setStatusMessage } from './status.js';
 
 const execAsync = promisify(exec);
-
-/**
- * Directories for code execution environments
- */
-export const EXECUTION_DIRS = {
-    NODE_MODULES: path.join(JS_TS_CODE_DIR, 'node_modules'),
-    PYTHON_VENV: path.join(PYTHON_CODE_DIR, 'venv'),
-    PYTHON_BIN: path.join(PYTHON_CODE_DIR, 'venv', 'bin'),
-} as const;
 
 /**
  * Initialize code execution directories
@@ -58,7 +52,7 @@ export const initializeNodeEnvironment = async (): Promise<void> => {
     try {
         // Check if environment is already set up (from Dockerfile)
         const packageJsonPath = path.join(JS_TS_CODE_DIR, 'package.json');
-        const nodeModulesPath = EXECUTION_DIRS.NODE_MODULES;
+        const nodeModulesPath = NODE_MODULES_DIR;
 
         try {
             await fs.stat(packageJsonPath);
@@ -77,8 +71,8 @@ export const initializeNodeEnvironment = async (): Promise<void> => {
         await initializeCodeDirectories();
 
         // Create node_modules directory inside js-ts
-        await fs.mkdir(EXECUTION_DIRS.NODE_MODULES, { recursive: true, mode: 0o755 });
-        log.debug('Node modules directory created', { path: EXECUTION_DIRS.NODE_MODULES });
+        await fs.mkdir(NODE_MODULES_DIR, { recursive: true, mode: 0o755 });
+        log.debug('Node modules directory created', { path: NODE_MODULES_DIR });
 
         // Create package.json
         const packageJson = {
@@ -107,10 +101,10 @@ export const initializePythonEnvironment = async (): Promise<void> => {
     try {
         // Check if venv already exists (pre-installed from Dockerfile)
         try {
-            await fs.stat(EXECUTION_DIRS.PYTHON_VENV);
+            await fs.stat(PYTHON_VENV_DIR);
             await fs.stat(PYTHON_CODE_DIR);
             log.info('Python venv already set up (pre-installed from Dockerfile)', {
-                path: EXECUTION_DIRS.PYTHON_VENV,
+                path: PYTHON_VENV_DIR,
                 codeDir: PYTHON_CODE_DIR,
             });
             return;
@@ -123,25 +117,17 @@ export const initializePythonEnvironment = async (): Promise<void> => {
         await initializeCodeDirectories();
 
         // Create Python venv with clean environment to avoid conflicts
-        log.debug('Creating Python venv', { path: EXECUTION_DIRS.PYTHON_VENV });
+        log.debug('Creating Python venv', { path: PYTHON_VENV_DIR });
 
-        // Create a clean environment without PYTHONHOME/VIRTUAL_ENV to prevent conflicts
-        const cleanEnv: NodeJS.ProcessEnv = {};
-        Object.keys(process.env).forEach((key) => {
-            if (key !== 'PYTHONHOME' && key !== 'VIRTUAL_ENV') {
-                cleanEnv[key] = process.env[key];
-            }
-        });
-        // Explicitly set these to empty to override any inherited values
-        cleanEnv.PYTHONHOME = '';
-        cleanEnv.VIRTUAL_ENV = '';
+        // Blank out PYTHONHOME/VIRTUAL_ENV so inherited values can't conflict
+        const cleanEnv: NodeJS.ProcessEnv = { ...process.env, PYTHONHOME: '', VIRTUAL_ENV: '' };
 
-        await execAsync(`python3 -m venv ${EXECUTION_DIRS.PYTHON_VENV}`, {
+        await execAsync(`python3 -m venv ${PYTHON_VENV_DIR}`, {
             env: cleanEnv,
         });
 
         log.info('Python virtual environment initialized successfully', {
-            path: EXECUTION_DIRS.PYTHON_VENV,
+            path: PYTHON_VENV_DIR,
         });
     } catch (error) {
         const err = error as Error;
@@ -185,7 +171,7 @@ export const installNodeLibraries = async (
                 timeout: 120000, // 2 minutes per library
                 env: {
                     ...process.env,
-                    NODE_PATH: EXECUTION_DIRS.NODE_MODULES,
+                    NODE_PATH: NODE_MODULES_DIR,
                 },
             });
 
@@ -242,7 +228,7 @@ export const installPythonLibraries = async (
     // Ensure Python venv exists
     await initializePythonEnvironment();
 
-    const pipBinary = path.join(EXECUTION_DIRS.PYTHON_BIN, 'pip');
+    const pipBinary = path.join(PYTHON_BIN_DIR, 'pip');
 
     for (const requirement of requirements) {
         try {
@@ -406,29 +392,22 @@ export const getUserEnvVars = (): Record<string, string> => ({ ...userEnvVars })
  * Returns environment with paths to Python venv and Node modules
  */
 export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
-    const env: NodeJS.ProcessEnv = {};
-
-    // Copy all environment variables
-    Object.keys(process.env).forEach((key) => {
-        env[key] = process.env[key];
-    });
-
-    // Layer in user-supplied vars before our infra paths so the sandbox
-    // PATH/NODE_PATH/VIRTUAL_ENV/PYTHONHOME below always win.
-    Object.assign(env, userEnvVars);
+    // Layer user-supplied vars over the process env, before our infra paths so
+    // the sandbox PATH/NODE_PATH/VIRTUAL_ENV/PYTHONHOME below always win.
+    const env: NodeJS.ProcessEnv = { ...process.env, ...userEnvVars };
 
     // Add Python venv to PATH
     const currentPath = env.PATH || '';
-    env.PATH = `${EXECUTION_DIRS.PYTHON_BIN}:${currentPath}`;
+    env.PATH = `${PYTHON_BIN_DIR}:${currentPath}`;
 
     // Add Node modules to PATH
-    env.PATH = `${path.join(EXECUTION_DIRS.NODE_MODULES, '.bin')}:${env.PATH}`;
+    env.PATH = `${path.join(NODE_MODULES_DIR, '.bin')}:${env.PATH}`;
 
     // Set Node.js to find modules in js-ts/node_modules
-    env.NODE_PATH = EXECUTION_DIRS.NODE_MODULES;
+    env.NODE_PATH = NODE_MODULES_DIR;
 
     // Set Python to use the venv
-    env.VIRTUAL_ENV = EXECUTION_DIRS.PYTHON_VENV;
+    env.VIRTUAL_ENV = PYTHON_VENV_DIR;
     env.PYTHONHOME = '';
 
     return env;

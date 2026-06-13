@@ -309,17 +309,43 @@ Ask first:
 .actor/
 ├── actor.json                    # Actor configuration (name, version, input schema)
 scripts/
+├── agent-launchers.sh            # Shell functions that install-then-run the coding agents
 └── capture-versions.sh           # Build-time version capture script (runs in Dockerfile)
                                   # Caches tool versions to /app/.versions/*.txt for fast shell startup
 src/
-├── main.ts                       # Express HTTP server & Actor initialization
-├── mcp.ts                        # Model Context Protocol (MCP) server
-├── operations.ts                 # Core execution operations (shell, Python, Node.js)
-├── environment.ts                # Sandbox environment setup & library installation
+├── main.ts                       # Entrypoint: startup sequence + HTTP server assembly (wiring only)
+├── routes/
+│   ├── fs.ts                     # /fs RESTful filesystem API
+│   ├── bridges.ts                # /bridges CRUD API
+│   ├── exec.ts                   # /exec command & code execution endpoint
+│   └── mcp.ts                    # /mcp Streamable HTTP transport endpoint
+├── operations.ts                 # Execution & filesystem operations (shared by REST and MCP)
+├── mcp.ts                        # MCP server tool definitions
+├── mcp-connections.ts            # Writes /sandbox/mcp.json from the MCP Connector input
+├── mcp-agent-config.ts           # Loads MCP Connectors into Claude Code / Codex / OpenCode configs
+├── shell-server.ts               # ttyd process supervision + /shell HTTP & WebSocket proxy
+├── shell-launch.ts               # /shell `?launch=<cmd>` → ttyd `?arg=...` URL translation (pure)
+├── ttyd.ts                       # ttyd restart/backoff/crash decision helpers (pure)
+├── bridges.ts                    # Bridge configuration store (file-watched, persisted)
+├── bridge-proxy.ts               # Live reverse proxies serving bridged HTTP/WebSocket traffic
+├── environment.ts                # Sandbox env setup, dependency installation, init script
+├── persistence.ts                # Migration state save/restore across platform migrations
+├── idle.ts                       # Activity tracking + idle auto-shutdown
+├── status.ts                     # Actor run status messages (best-effort)
+├── env-vars.ts                   # envVars input parser
+├── node-deps.ts                  # nodeDependencies input parser
+├── skills.ts                     # agentSkills input parser
+├── safe-json.ts                  # Tolerant JSON parsing for user-supplied input
+├── route-params.ts               # Express 5 wildcard param → path helper
 ├── types.ts                      # TypeScript type definitions and interfaces
-└── consts.ts                     # Constants and configuration values
+├── consts.ts                     # Constants and configuration values
+└── templates/
+    ├── landing.ts/.ejs/.css      # Landing page + /llms.txt rendering
+    ├── browse.ts                 # /browse filesystem browser SPA
+    └── shell.ts                  # Bash scripts (bashrc, welcome) + terminal reconnect overlay
 tests/
-└── e2e.ts                        # E2E platform tests (deployment + 47 endpoint tests)
+├── unit/*.test.ts                # Unit tests for the pure modules (run in Docker build)
+└── e2e.ts                        # E2E platform tests (deployment + endpoint tests)
 storage/                          # Local storage (mirrors Cloud during development)
 ├── datasets/                     # Output items (JSON objects)
 ├── key_value_stores/             # Files, config, INPUT
