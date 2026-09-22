@@ -15,6 +15,27 @@ import { getExecutionEnvironment } from './environment.js';
 
 const execAsync = promisify(exec);
 
+/** Subdirectory (inside /sandbox/js-ts and /sandbox/py) holding transient code snippets. */
+const EXEC_TEMP_DIRNAME = '.exec';
+
+/** Shape of the error `child_process.exec` rejects with. */
+interface ExecError {
+    message: string;
+    stdout?: string;
+    stderr?: string;
+    /** Numeric exit status, `null` when killed by a signal, or a string errno/error code (e.g. `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`). */
+    code?: number | string | null;
+    signal?: string | null;
+}
+
+/**
+ * Always report a numeric exit code. `exec` sets `code` to `null` when the
+ * process was killed by a signal (e.g. timeout) and to a string when Node
+ * itself aborted the run (e.g. maxBuffer exceeded) — both must not leak into
+ * the `exitCode` field, which is documented and typed as a number.
+ */
+export const toExitCode = (err: ExecError): number => (typeof err.code === 'number' ? err.code : 1);
+
 /**
  * Resolve directory path relative to SANDBOX_DIR
  * @param dirPath - The directory path to resolve (optional)
@@ -90,12 +111,13 @@ export const runCommand = async (
             exitCode: 0,
         };
     } catch (error) {
-        const err = error as { message: string; stdout?: string; stderr?: string; code?: number };
-        log.debug('runCommand failed', { command, error: err.message, exitCode: err.code || 1 });
+        const err = error as ExecError;
+        const exitCode = toExitCode(err);
+        log.debug('runCommand failed', { command, error: err.message, exitCode });
         return {
             stdout: err.stdout || '',
-            stderr: err.stderr || '',
-            exitCode: err.code || 1,
+            stderr: err.stderr || err.message || '',
+            exitCode,
         };
     }
 };
@@ -293,33 +315,37 @@ export const executeCode = async (
             };
         }
 
-        // Generate unique filename using random ID (not SHA256 hash for efficiency)
+        // The snippet is written INSIDE the language directory (not /tmp): Node
+        // resolves ESM bare specifiers relative to the importing file and ignores
+        // NODE_PATH for `import`, so a file in /tmp could never `import` packages
+        // from /sandbox/js-ts/node_modules. Python gets the same treatment for
+        // symmetry (relative imports of sibling modules in /sandbox/py work).
         const uniqueId = crypto.randomBytes(6).toString('hex');
         const fileExtensions: Record<string, string> = {
             js: '.js',
             ts: '.ts',
             py: '.py',
         };
-        const tempFile = path.join('/tmp', `code-${uniqueId}${fileExtensions[language]}`);
+        const languageDir = language === 'py' ? PYTHON_CODE_DIR : JS_TS_CODE_DIR;
+        const tempDir = path.join(languageDir, EXEC_TEMP_DIRNAME);
+        await fs.mkdir(tempDir, { recursive: true });
+        const tempFile = path.join(tempDir, `code-${uniqueId}${fileExtensions[language]}`);
 
         // Write code to file
         await fs.writeFile(tempFile, code, 'utf8');
         tempFiles.push(tempFile);
 
         let command: string;
-        let executionDir: string;
+        let executionDir: string = languageDir;
 
-        // Build command based on language and set execution directory
+        // Build command based on language
         if (language === 'js') {
             command = `node ${tempFile}`;
-            executionDir = JS_TS_CODE_DIR;
         } else if (language === 'ts') {
             command = `tsx ${tempFile}`;
-            executionDir = JS_TS_CODE_DIR;
         } else {
             // language === 'py'
             command = `python ${tempFile}`;
-            executionDir = PYTHON_CODE_DIR;
         }
 
         // If custom cwd is provided, use it (after validation)
@@ -359,12 +385,13 @@ export const executeCode = async (
             language,
         };
     } catch (error) {
-        const err = error as { message: string; stdout?: string; stderr?: string; code?: number };
-        log.debug('executeCode failed', { language, error: err.message, exitCode: err.code || 1 });
+        const err = error as ExecError;
+        const exitCode = toExitCode(err);
+        log.debug('executeCode failed', { language, error: err.message, exitCode });
         return {
             stdout: err.stdout || '',
             stderr: err.stderr || err.message || 'Code execution failed',
-            exitCode: err.code || 1,
+            exitCode,
             language,
         };
     } finally {

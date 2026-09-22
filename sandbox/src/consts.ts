@@ -85,6 +85,8 @@ export const MIGRATION_EXCLUDED_PATHS = [
     '/var/lib/dpkg', // Exclude dpkg database - we reinstall packages from apt history instead
     '/sandbox/js-ts/node_modules',
     '/sandbox/py/venv',
+    '/sandbox/js-ts/.exec', // transient /exec code snippets
+    '/sandbox/py/.exec',
 ];
 
 /**

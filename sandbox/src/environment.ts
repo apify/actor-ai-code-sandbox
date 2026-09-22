@@ -1,5 +1,5 @@
 // Environment setup for code execution (Node.js and Python)
-import { exec, spawn } from 'node:child_process';
+import { exec, execFile, spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { promisify } from 'node:util';
@@ -19,6 +19,7 @@ import {
 import { setStatusMessage } from './status.js';
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 /**
  * Initialize code execution directories
@@ -166,7 +167,9 @@ export const installNodeLibraries = async (
         try {
             log.debug('Installing Node.js dependency', { package: packageSpec });
             // Install packages in /sandbox/js-ts/node_modules
-            await execAsync(`npm install --save ${packageSpec}`, {
+            // execFile (no shell): specs like `pkg@>=1.0` or `pkg@1 || 2` must reach
+            // npm verbatim, not be parsed as shell redirects/operators.
+            await execFileAsync('npm', ['install', '--save', packageSpec], {
                 cwd: JS_TS_CODE_DIR,
                 timeout: 120000, // 2 minutes per library
                 env: {
@@ -233,7 +236,10 @@ export const installPythonLibraries = async (
     for (const requirement of requirements) {
         try {
             log.debug('Installing Python requirement', { requirement });
-            await execAsync(`${pipBinary} install ${requirement}`, {
+            // execFile (no shell): `numpy>=1.24` through a shell would redirect stdout
+            // to a file named `=1.24` and silently drop the version constraint.
+            await execFileAsync(pipBinary, ['install', requirement], {
+                cwd: PYTHON_CODE_DIR,
                 timeout: 120000, // 2 minutes per requirement
             });
 
@@ -277,7 +283,7 @@ export const installSkills = async (
     for (const skill of skills) {
         try {
             log.debug('Installing skill', { skill });
-            await execAsync(`npx -y skills add --global --yes --all ${skill}`, {
+            await execFileAsync('npx', ['-y', 'skills', 'add', '--global', '--yes', '--all', skill], {
                 timeout: 120000, // 2 minutes per skill
                 cwd: SANDBOX_DIR,
             });

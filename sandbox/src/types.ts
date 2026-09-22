@@ -43,9 +43,10 @@ export interface ActorInput {
     initBashScript?: string;
 
     /**
-     * Secret environment variables exposed to the sandbox shell, init script,
-     * and code execution. Accepts either dotenv-style KEY=VALUE lines or a JSON
-     * object. Encrypted at rest by Apify (isSecret in input schema).
+     * Secret environment variables exposed ONLY to the init script; they are
+     * dropped before the shell, MCP server, and code execution start. Accepts
+     * either dotenv-style KEY=VALUE lines or a JSON object. Encrypted at rest by
+     * Apify (isSecret in input schema).
      */
     envVars?: string;
 

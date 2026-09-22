@@ -262,7 +262,7 @@
             const text = document.getElementById('statusText');
 
             try {
-                const response = await fetch('/health');
+                const response = await fetch('/health', { headers: { 'X-Sandbox-Passive': '1' } });
                 const data = await response.json();
 
                 if (data.status === 'healthy') {
@@ -298,7 +298,8 @@
         // Bridges management
         async function loadBridges() {
             try {
-                const response = await fetch('/bridges');
+                // Passive poll: must not count as sandbox activity (see main.ts).
+                const response = await fetch('/bridges', { headers: { 'X-Sandbox-Passive': '1' } });
                 const data = await response.json();
                 renderBridges(data.bridges || []);
             } catch (error) {
@@ -314,15 +315,26 @@
                 return;
             }
 
+            // Bridge values come from the API / .bridges.json — escape them, and
+            // bind the Remove handler instead of interpolating into an onclick.
             container.innerHTML = bridges.map(b => `
                 <div class="bridge-row">
-                    <code class="bridge-path">${b.path}</code>
+                    <code class="bridge-path">${escapeHtml(b.path)}</code>
                     <span class="tag">→</span>
-                    <code class="bridge-target">${b.target}</code>
-                    <a href="${b.path}" target="_blank" class="bridge-open">Open</a>
-                    <button class="btn-danger" onclick="deleteBridge('${b.path}')">Remove</button>
+                    <code class="bridge-target">${escapeHtml(b.target)}</code>
+                    <a href="${escapeHtml(b.path)}" target="_blank" rel="noopener noreferrer" class="bridge-open">Open</a>
+                    <button class="btn-danger" data-path="${escapeHtml(b.path)}">Remove</button>
                 </div>
             `).join('');
+            container.querySelectorAll('.btn-danger').forEach((btn) => {
+                btn.addEventListener('click', () => deleteBridge(btn.dataset.path));
+            });
+        }
+
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+            })[c]);
         }
 
         async function addBridge() {
