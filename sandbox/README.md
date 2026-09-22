@@ -130,15 +130,15 @@ Bridges can also be set via the `bridges` input or by writing `/sandbox/.bridges
 
 All inputs are optional. Set them in the Actor input form or via the API.
 
-| Input                                         | Description                                                                                                                                                             |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Agent skills** (`agentSkills`)              | SKILLS.md packages for the coding agents — `owner/repo` or a repo URL per line, or a JSON array. Defaults to `apify/agent-skills`. See [skills.sh](https://skills.sh/). |
-| **Node.js dependencies** (`nodeDependencies`) | npm packages for JS/TS execution. One `package@version` per line (npm-style), or a `package.json`-style JSON object.                                                    |
-| **MCP connectors** (`mcpConnectors`)          | MCP connectors to pre-load into Claude Code, Codex, and OpenCode, and write to `/sandbox/mcp.json` for `mcpc`.                                                          |
-| **Setup script** (`initBashScript`)           | Bash script run on startup after dependencies install. Output streams to the log (tagged `[init]`) with a progress heartbeat; 5-minute timeout.                         |
-| **Environment variables** (`envVars`)         | Secret variables exposed **only to the setup script**, then removed before the shell, MCP server, and code execution start. dotenv or JSON; encrypted at rest.          |
-| **Idle timeout** (`idleTimeoutSecs`)          | Seconds of inactivity before automatic shutdown (default `900`; `0` disables). Activity includes HTTP requests and shell interaction.                                   |
-| **Bridges** (`bridges`)                       | Bridges to create at startup (see above).                                                                                                                               |
+| Input                                         | Description                                                                                                                                                                    |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **Agent skills** (`agentSkills`)              | SKILLS.md packages for the coding agents — `owner/repo` or a repo URL per line, or a JSON array. None are installed unless you list some. See [skills.sh](https://skills.sh/). |
+| **Node.js dependencies** (`nodeDependencies`) | npm packages for JS/TS execution. One `package@version` per line (npm-style), or a `package.json`-style JSON object.                                                           |
+| **MCP connectors** (`mcpConnectors`)          | MCP connectors to pre-load into Claude Code, Codex, and OpenCode, and write to `/sandbox/mcp.json` for `mcpc`.                                                                 |
+| **Setup script** (`initBashScript`)           | Bash script run on startup after dependencies install. Output streams to the log (tagged `[init]`) with a progress heartbeat; 5-minute timeout.                                |
+| **Environment variables** (`envVars`)         | Secret variables exposed **only to the setup script**, then removed before the shell, MCP server, and code execution start. dotenv or JSON; encrypted at rest.                 |
+| **Idle timeout** (`idleTimeoutSecs`)          | Seconds of inactivity before automatic shutdown (default `900`; `0` disables). Activity includes HTTP requests and shell interaction.                                          |
+| **Bridges** (`bridges`)                       | Bridges to create at startup (see above).                                                                                                                                      |
 
 Dependencies install at startup before any code runs. For cost efficiency, set the Actor's **Execution Timeout to 0 (infinite)** and let the idle timeout manage the lifecycle. Note that every request to the Actor has a 5-minute ceiling, so each operation must finish within that window.
 
