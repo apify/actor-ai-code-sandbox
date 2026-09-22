@@ -27,7 +27,7 @@ On startup, it:
 
 | Input | Description | Default |
 |-------|-------------|---------|
-| `agentSkills` | Skill packages to install (SKILLS.md files), one per line or JSON array | `apify/agent-skills` |
+| `agentSkills` | Skill packages to install (SKILLS.md files), one per line or JSON array | - |
 | `initBashScript` | Bash script to run before OpenClaw starts | - |
 | `idleTimeoutSeconds` | Shutdown after inactivity (0 = disabled) | 0 |
 
