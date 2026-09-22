@@ -123,7 +123,7 @@ export const createMcpServer = () => {
         'read-file',
         {
             description:
-                'Reads file contents from the sandbox. To read only a part of a file (e.g., specific lines), use the run-command tool with utilities like sed, head, tail, or grep (e.g., "sed -n 10,20p file.txt" to read lines 10-20).',
+                'Reads file contents from the sandbox. To read only a part of a file (e.g., specific lines), use the execute tool with utilities like sed, head, tail, or grep (e.g., "sed -n 10,20p file.txt" to read lines 10-20).',
             inputSchema: {
                 path: z.string().describe('File path to read from'),
             },

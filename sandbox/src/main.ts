@@ -191,12 +191,15 @@ const app = express();
 const server = createServer(app);
 
 // Any non-health request — including doc fetches like /llms.txt — counts as
-// activity and pushes back the idle-shutdown timer. Only /health and the
-// readiness probe are excluded, since they fire automatically.
+// activity and pushes back the idle-shutdown timer. Excluded: /health, the
+// readiness probe, and requests tagged X-Sandbox-Passive (the landing page's
+// own periodic polling), since they fire automatically and would otherwise
+// keep the sandbox alive for as long as a browser tab stays open.
 app.use((req, _res, next) => {
     const isHealth = req.path === '/health';
     const isProbe = !!req.headers['x-apify-container-server-readiness-probe'];
-    if (!isHealth && !isProbe) {
+    const isPassive = !!req.headers['x-sandbox-passive'];
+    if (!isHealth && !isProbe && !isPassive) {
         touchActivity();
     }
     next();
@@ -285,9 +288,15 @@ initializeBridgeProxies();
 app.use(bridgeRequestHandler);
 
 // WebSocket upgrades go to the shell or a bridge; anything else is refused.
+// A throw here (e.g. a malformed /sandbox/.bridges.json) is not caught by
+// Express and would take down the whole process, so guard it.
 server.on('upgrade', (req, socket, head) => {
-    if (handleShellUpgrade(req, socket, head)) return;
-    if (handleBridgeUpgrade(req, socket, head)) return;
+    try {
+        if (handleShellUpgrade(req, socket, head)) return;
+        if (handleBridgeUpgrade(req, socket, head)) return;
+    } catch (err) {
+        log.error('WebSocket upgrade handler failed', { url: req.url, error: (err as Error).message });
+    }
     socket.destroy();
 });
 
