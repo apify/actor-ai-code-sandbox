@@ -1,5 +1,15 @@
+# Base image is declared the same way Apify's own base images and templates
+# declare theirs — `--platform=linux/amd64` plus a NODE_VERSION build arg.
+# Matching that form keeps the lower layers identical to the other Apify
+# images, so a worker that already has them can reuse them from cache instead
+# of pulling them again; image size matters most on a cold start, and a shared
+# base is what avoids one. NODE_VERSION is a global ARG: it is in scope for the
+# FROM lines below and goes out of scope inside each stage (nothing needs it
+# there). Bump it to move both stages to a new Node major at once.
+ARG NODE_VERSION=24
+
 # Stage 1: Builder - Compile TypeScript and ttyd
-FROM node:24-trixie-slim AS builder
+FROM --platform=linux/amd64 node:${NODE_VERSION}-trixie-slim AS builder
 
 # Install build tools and dependencies for ttyd
 RUN apt-get update && apt-get install -y \
@@ -44,7 +54,7 @@ RUN npm run build
 RUN [ -n "$APIFY_IS_AT_HOME" ] || npm run test:unit
 
 # Stage 2: Runtime - Node.js image
-FROM node:24-trixie-slim
+FROM --platform=linux/amd64 node:${NODE_VERSION}-trixie-slim
 
 # Install required dependencies for sandbox operations.
 # ttyd is compiled from source in the builder stage and copied into this stage
