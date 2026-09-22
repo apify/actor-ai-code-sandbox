@@ -6,7 +6,7 @@
 # base is what avoids one. NODE_VERSION is a global ARG: it is in scope for the
 # FROM lines below and goes out of scope inside each stage (nothing needs it
 # there). Bump it to move both stages to a new Node major at once.
-ARG NODE_VERSION=24
+ARG NODE_VERSION=26
 
 # Stage 1: Builder - Compile TypeScript and ttyd
 FROM --platform=linux/amd64 node:${NODE_VERSION}-trixie-slim AS builder

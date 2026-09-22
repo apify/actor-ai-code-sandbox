@@ -145,7 +145,7 @@ Dependencies install at startup before any code runs. For cost efficiency, set t
 
 ## Sandbox environment
 
-- **Base image:** [Debian Trixie](https://www.debian.org/releases/trixie/) with [Node.js 24](https://nodejs.org/) and [Python 3](https://www.python.org/) (`venv` at `/sandbox/py/venv`).
+- **Base image:** [Debian Trixie](https://www.debian.org/releases/trixie/) with [Node.js 26](https://nodejs.org/) and [Python 3](https://www.python.org/) (`venv` at `/sandbox/py/venv`).
 - **Pre-installed tools:** [git](https://git-scm.com/), [openssh-client](https://www.openssh.com/), [curl](https://curl.se/), [wget](https://www.gnu.org/software/wget/), [jq](https://jqlang.org/), [build-essential](https://packages.debian.org/trixie/build-essential), [`tsx`](https://tsx.is/), [`apify-cli`](https://docs.apify.com/cli/), [`mcpc`](https://github.com/apify/mcpc), and [`ttyd`](https://github.com/tsl0922/ttyd). The [`apify-client`](https://docs.apify.com/api/client/js/) library is preinstalled in the Node environment, and the [Python `apify-client`](https://docs.apify.com/api/client/python/) in the venv.
 - **Pre-configured coding agents:** [Claude Code](https://code.claude.com/), [Codex CLI](https://github.com/openai/codex), and [OpenCode](https://opencode.ai/) — installed on first launch and wired to the [Apify OpenRouter proxy](https://apify.com/apify/openrouter) (authenticated with `APIFY_TOKEN`), with confirmation prompts auto-approved (safe inside the sandbox).
 - **Working directories:** `/sandbox` (shell), `/sandbox/js-ts` (npm packages in `node_modules`), `/sandbox/py` (Python venv).
