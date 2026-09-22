@@ -13,7 +13,7 @@ crawlee_storage
 # Node.js
 node_modules
 dist
-tsconfig.tsbuildinfo
+*.tsbuildinfo
 *.log
 *.log*
 

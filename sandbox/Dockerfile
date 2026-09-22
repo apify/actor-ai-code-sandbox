@@ -87,14 +87,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Install global CLI tooling in a single layer, then drop the npm cache so it
-# doesn't bloat the image:
+# doesn't bloat the image. Versions are pinned for reproducible builds (like
+# TTYD_VERSION above) — bump them deliberately:
 #   - tsx: TypeScript execution in the execute-code endpoint
 #   - apify-cli: --ignore-scripts works around apify-client's `only-allow pnpm`
 #     preinstall hook
-#   - @apify/mcpc: MCP CLI (binary: mcpc)
-RUN npm install -g tsx \
-    && npm install -g --ignore-scripts apify-cli \
-    && npm install -g @apify/mcpc \
+#   - @apify/mcpc: MCP CLI (binary: mcpc). 0.5.0 dropped the x402/Ethereum
+#     dependency cluster (viem and friends, ~75 MB), shrinking the install from
+#     ~110 MB to ~36 MB — watch the installed size when bumping this.
+ARG TSX_VERSION=4.23.1
+ARG APIFY_CLI_VERSION=1.7.1
+ARG MCPC_VERSION=0.6.0
+RUN npm install -g "tsx@${TSX_VERSION}" \
+    && npm install -g --ignore-scripts "apify-cli@${APIFY_CLI_VERSION}" \
+    && npm install -g "@apify/mcpc@${MCPC_VERSION}" \
     && npm cache clean --force
 
 # NOTE: The AI coding agent CLIs (Claude Code, OpenCode, Codex) are deliberately
