@@ -4,7 +4,6 @@ A suite of Apify Actors providing secure, containerized environments for AI codi
 
 [![Apify Actors](https://img.shields.io/badge/Apify-Actors-blue)](https://apify.com)
 [![Node.js 24](https://img.shields.io/badge/Node.js-24-green)](https://nodejs.org)
-[![Python 3](https://img.shields.io/badge/Python-3-blue)](https://python.org)
 
 ## Overview
 
@@ -21,11 +20,11 @@ This monorepo contains four Apify Actors designed for AI-powered coding workflow
 
 The **AI Sandbox** is the core Actor that provides the full execution environment:
 
-- Debian Trixie container with Node.js 24 and Python 3
+- Debian Trixie container with Node.js 24
 - RESTful filesystem API for file operations
 - MCP (Model Context Protocol) server for AI agent integration
 - Interactive browser-based terminal (ttyd)
-- Dependency management for npm and pip packages
+- Dependency management for npm packages
 
 The **Claude Code** and **OpenCode** Actors are lightweight proxies that [metamorph](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the AI Sandbox, automatically launching their respective CLI tools in the terminal.
 
@@ -49,7 +48,7 @@ Once running, connect via:
 
 - **🔒 Secure Isolation**: Execute untrusted code safely in containerized environments
 - **🤖 AI Agent Ready**: MCP server with tools for file operations and code execution
-- **📦 Multi-Language**: JavaScript, TypeScript, Python, and shell command support
+- **📦 Multi-Language**: JavaScript, TypeScript, and shell command support
 - **🖥️ Interactive Shell**: Browser-based terminal for real-time debugging
 - **🔗 Actor Orchestration**: Agents can use the Apify token to run other Actors
 - **📂 Filesystem API**: RESTful endpoints for file upload, download, and management

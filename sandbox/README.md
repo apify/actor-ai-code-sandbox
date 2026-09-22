@@ -60,23 +60,23 @@ codex mcp add sandbox --url https://UNIQUE-ID.runs.apify.net/mcp
 mcpc connect https://UNIQUE-ID.runs.apify.net/mcp @sandbox
 ```
 
-Tools exposed: `execute` (shell / JS / TS / Python), `read-file`, `write-file`, `list-files`.
+Tools exposed: `execute` (shell / JS / TS), `read-file`, `write-file`, `list-files`.
 
 ## ⚡ Code execution API — `/exec`
 
 `POST /exec` runs a shell command or a code snippet.
 
 - Body: `{ command: string; language?: string; cwd?: string; timeoutSecs?: number }`
-- `language`: `bash`/`sh` (or omit) for shell; `js`/`javascript`, `ts`/`typescript`, `py`/`python` for code.
+- `language`: `bash`/`sh` (or omit) for shell; `js`/`javascript`, `ts`/`typescript` for code.
 - Returns `{ stdout, stderr, exitCode, language }` — `200` on success, `500` on a non-zero exit or error.
 
 ```bash
 curl -X POST https://UNIQUE-ID.runs.apify.net/exec \
   -H "Content-Type: application/json" \
-  -d '{"command": "print(\"hi\")", "language": "py", "timeoutSecs": 10}'
+  -d '{"command": "console.log(\"hi\")", "language": "ts", "timeoutSecs": 10}'
 ```
 
-Default working directories: shell → `/sandbox`, JS/TS → `/sandbox/js-ts`, Python → `/sandbox/py`. Override with `cwd` (must stay within `/sandbox`).
+Default working directories: shell → `/sandbox`, JS/TS → `/sandbox/js-ts`. Override with `cwd` (must stay within `/sandbox`).
 
 ## 📁 Filesystem API — `/fs`
 
@@ -130,25 +130,24 @@ Bridges can also be set via the `bridges` input or by writing `/sandbox/.bridges
 
 All inputs are optional. Set them in the Actor input form or via the API.
 
-| Input                                          | Description                                                                                                                                                             |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Agent skills** (`agentSkills`)               | SKILLS.md packages for the coding agents — `owner/repo` or a repo URL per line, or a JSON array. Defaults to `apify/agent-skills`. See [skills.sh](https://skills.sh/). |
-| **Node.js dependencies** (`nodeDependencies`)  | npm packages for JS/TS execution. One `package@version` per line (npm-style), or a `package.json`-style JSON object.                                                    |
-| **Python requirements** (`pythonRequirements`) | pip packages for Python execution, in `requirements.txt` format.                                                                                                        |
-| **MCP connectors** (`mcpConnectors`)           | MCP connectors to pre-load into Claude Code, Codex, and OpenCode, and write to `/sandbox/mcp.json` for `mcpc`.                                                          |
-| **Setup script** (`initBashScript`)            | Bash script run on startup after dependencies install. Output streams to the log (tagged `[init]`) with a progress heartbeat; 5-minute timeout.                         |
-| **Environment variables** (`envVars`)          | Secret variables exposed **only to the setup script**, then removed before the shell, MCP server, and code execution start. dotenv or JSON; encrypted at rest.          |
-| **Idle timeout** (`idleTimeoutSecs`)           | Seconds of inactivity before automatic shutdown (default `900`; `0` disables). Activity includes HTTP requests and shell interaction.                                   |
-| **Bridges** (`bridges`)                        | Bridges to create at startup (see above).                                                                                                                               |
+| Input                                         | Description                                                                                                                                                             |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Agent skills** (`agentSkills`)              | SKILLS.md packages for the coding agents — `owner/repo` or a repo URL per line, or a JSON array. Defaults to `apify/agent-skills`. See [skills.sh](https://skills.sh/). |
+| **Node.js dependencies** (`nodeDependencies`) | npm packages for JS/TS execution. One `package@version` per line (npm-style), or a `package.json`-style JSON object.                                                    |
+| **MCP connectors** (`mcpConnectors`)          | MCP connectors to pre-load into Claude Code, Codex, and OpenCode, and write to `/sandbox/mcp.json` for `mcpc`.                                                          |
+| **Setup script** (`initBashScript`)           | Bash script run on startup after dependencies install. Output streams to the log (tagged `[init]`) with a progress heartbeat; 5-minute timeout.                         |
+| **Environment variables** (`envVars`)         | Secret variables exposed **only to the setup script**, then removed before the shell, MCP server, and code execution start. dotenv or JSON; encrypted at rest.          |
+| **Idle timeout** (`idleTimeoutSecs`)          | Seconds of inactivity before automatic shutdown (default `900`; `0` disables). Activity includes HTTP requests and shell interaction.                                   |
+| **Bridges** (`bridges`)                       | Bridges to create at startup (see above).                                                                                                                               |
 
 Dependencies install at startup before any code runs. For cost efficiency, set the Actor's **Execution Timeout to 0 (infinite)** and let the idle timeout manage the lifecycle. Note that every request to the Actor has a 5-minute ceiling, so each operation must finish within that window.
 
 ## Sandbox environment
 
-- **Base image:** [Debian Trixie](https://www.debian.org/releases/trixie/) with [Node.js 24](https://nodejs.org/) and [Python 3](https://www.python.org/) (`venv` at `/sandbox/py/venv`).
-- **Pre-installed tools:** [git](https://git-scm.com/), [openssh-client](https://www.openssh.com/), [curl](https://curl.se/), [wget](https://www.gnu.org/software/wget/), [jq](https://jqlang.org/), [build-essential](https://packages.debian.org/trixie/build-essential), [`tsx`](https://tsx.is/), [`apify-cli`](https://docs.apify.com/cli/), [`mcpc`](https://github.com/apify/mcpc), and [`ttyd`](https://github.com/tsl0922/ttyd). The [`apify-client`](https://docs.apify.com/api/client/js/) library is preinstalled in the Node environment, and the [Python `apify-client`](https://docs.apify.com/api/client/python/) in the venv.
+- **Base image:** [Debian Trixie](https://www.debian.org/releases/trixie/) with [Node.js 24](https://nodejs.org/). The image is Node-only — it ships no Python and no C toolchain; install either from the setup script (`apt-get install -y python3 python3-venv build-essential`) if a workload needs it.
+- **Pre-installed tools:** [git](https://git-scm.com/), [openssh-client](https://www.openssh.com/), [curl](https://curl.se/), [wget](https://www.gnu.org/software/wget/), [jq](https://jqlang.org/), [`tsx`](https://tsx.is/), [`apify-cli`](https://docs.apify.com/cli/), [`mcpc`](https://github.com/apify/mcpc), and [`ttyd`](https://github.com/tsl0922/ttyd). The [`apify-client`](https://docs.apify.com/api/client/js/) library is preinstalled in the Node environment.
 - **Pre-configured coding agents:** [Claude Code](https://code.claude.com/), [Codex CLI](https://github.com/openai/codex), and [OpenCode](https://opencode.ai/) — installed on first launch and wired to the [Apify OpenRouter proxy](https://apify.com/apify/openrouter) (authenticated with `APIFY_TOKEN`), with confirmation prompts auto-approved (safe inside the sandbox).
-- **Working directories:** `/sandbox` (shell), `/sandbox/js-ts` (npm packages in `node_modules`), `/sandbox/py` (Python venv).
+- **Working directories:** `/sandbox` (shell), `/sandbox/js-ts` (npm packages in `node_modules`).
 - **Persistence:** filesystem changes are backed up to the Actor's key-value store and restored after a container migration, so work survives restarts (dependency directories are excluded and reinstalled).
 - **Agent context:** [`AGENTS.md`](https://agents.md/) and `CLAUDE.md` are placed in `/sandbox` to guide the coding agents.
 

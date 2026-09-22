@@ -10,7 +10,7 @@ import { log } from 'apify';
 import { ZipArchive } from 'archiver';
 import mime from 'mime-types';
 
-import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
+import { JS_TS_CODE_DIR, SANDBOX_DIR } from './consts.js';
 import { getExecutionEnvironment } from './environment.js';
 
 const execAsync = promisify(exec);
@@ -222,7 +222,7 @@ export const listFiles = async (
 };
 
 /** Canonical execution languages; 'shell' runs via bash, the rest via interpreters. */
-export type ExecLanguage = 'js' | 'ts' | 'py' | 'shell';
+export type ExecLanguage = 'js' | 'ts' | 'shell';
 
 /** Accepted language aliases mapped to their canonical names. */
 const LANGUAGE_ALIASES: Record<string, ExecLanguage> = {
@@ -230,8 +230,6 @@ const LANGUAGE_ALIASES: Record<string, ExecLanguage> = {
     javascript: 'js',
     ts: 'ts',
     typescript: 'ts',
-    py: 'py',
-    python: 'py',
     bash: 'shell',
     sh: 'shell',
 };
@@ -250,7 +248,7 @@ export const normalizeLanguage = (lang?: string): ExecLanguage | null => {
 };
 
 /**
- * Execute code in a specified language (JS, TS, or Python)
+ * Execute code in a specified language (JS or TS)
  *
  * IMPORTANT: Each code execution spawns a new interpreter process to ensure isolation.
  * This prevents agents from using variables from previous code executions.
@@ -260,7 +258,7 @@ export const normalizeLanguage = (lang?: string): ExecLanguage | null => {
  */
 export const executeCode = async (
     code: string,
-    language: 'js' | 'ts' | 'py',
+    language: 'js' | 'ts',
     timeout?: number,
     cwd?: string,
 ): Promise<{
@@ -274,10 +272,10 @@ export const executeCode = async (
 
     try {
         // Validate language
-        if (!['js', 'ts', 'py'].includes(language)) {
+        if (!['js', 'ts'].includes(language)) {
             return {
                 stdout: '',
-                stderr: `Unsupported language: ${language}. Supported languages: js, ts, py`,
+                stderr: `Unsupported language: ${language}. Supported languages: js, ts`,
                 exitCode: 1,
                 language,
             };
@@ -298,7 +296,6 @@ export const executeCode = async (
         const fileExtensions: Record<string, string> = {
             js: '.js',
             ts: '.ts',
-            py: '.py',
         };
         const tempFile = path.join('/tmp', `code-${uniqueId}${fileExtensions[language]}`);
 
@@ -312,15 +309,11 @@ export const executeCode = async (
         // Build command based on language and set execution directory
         if (language === 'js') {
             command = `node ${tempFile}`;
-            executionDir = JS_TS_CODE_DIR;
-        } else if (language === 'ts') {
-            command = `tsx ${tempFile}`;
-            executionDir = JS_TS_CODE_DIR;
         } else {
-            // language === 'py'
-            command = `python ${tempFile}`;
-            executionDir = PYTHON_CODE_DIR;
+            // language === 'ts'
+            command = `tsx ${tempFile}`;
         }
+        executionDir = JS_TS_CODE_DIR;
 
         // If custom cwd is provided, use it (after validation)
         if (cwd) {
@@ -381,7 +374,7 @@ export const executeCode = async (
 
 /**
  * Run a shell command or code snippet, dispatching on the normalized language
- * (null or 'shell' → bash via runCommand; js/ts/py → executeCode). Shared
+ * (null or 'shell' → bash via runCommand; js/ts → executeCode). Shared
  * entry point for the /exec REST endpoint and the MCP `execute` tool.
  */
 export const execute = async (options: {

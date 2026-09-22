@@ -1,4 +1,4 @@
-// Environment setup for code execution (Node.js and Python)
+// Environment setup for code execution (Node.js)
 import { exec, spawn } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -11,9 +11,6 @@ import {
     INIT_SCRIPT_TIMEOUT_MS,
     JS_TS_CODE_DIR,
     NODE_MODULES_DIR,
-    PYTHON_BIN_DIR,
-    PYTHON_CODE_DIR,
-    PYTHON_VENV_DIR,
     SANDBOX_DIR,
 } from './consts.js';
 import { setStatusMessage } from './status.js';
@@ -22,15 +19,11 @@ const execAsync = promisify(exec);
 
 /**
  * Initialize code execution directories
- * Creates /sandbox/py and /sandbox/js-ts directories with 755 permissions
+ * Creates the /sandbox/js-ts directory with 755 permissions
  */
 export const initializeCodeDirectories = async (): Promise<void> => {
     log.debug('Initializing code execution directories');
     try {
-        // Create Python code directory
-        await fs.mkdir(PYTHON_CODE_DIR, { recursive: true, mode: 0o755 });
-        log.debug('Python code directory created', { path: PYTHON_CODE_DIR });
-
         // Create JS/TS code directory
         await fs.mkdir(JS_TS_CODE_DIR, { recursive: true, mode: 0o755 });
         log.debug('JavaScript/TypeScript code directory created', { path: JS_TS_CODE_DIR });
@@ -93,50 +86,6 @@ export const initializeNodeEnvironment = async (): Promise<void> => {
 };
 
 /**
- * Initialize Python virtual environment
- * Checks if venv is already set up (from Dockerfile) before creating
- */
-export const initializePythonEnvironment = async (): Promise<void> => {
-    log.debug('Initializing Python virtual environment');
-    try {
-        // Check if venv already exists (pre-installed from Dockerfile)
-        try {
-            await fs.stat(PYTHON_VENV_DIR);
-            await fs.stat(PYTHON_CODE_DIR);
-            log.info('Python venv already set up (pre-installed from Dockerfile)', {
-                path: PYTHON_VENV_DIR,
-                codeDir: PYTHON_CODE_DIR,
-            });
-            return;
-        } catch {
-            // venv doesn't exist, create it
-            log.debug('Python venv not found, creating...');
-        }
-
-        // Initialize code directories first
-        await initializeCodeDirectories();
-
-        // Create Python venv with clean environment to avoid conflicts
-        log.debug('Creating Python venv', { path: PYTHON_VENV_DIR });
-
-        // Blank out PYTHONHOME/VIRTUAL_ENV so inherited values can't conflict
-        const cleanEnv: NodeJS.ProcessEnv = { ...process.env, PYTHONHOME: '', VIRTUAL_ENV: '' };
-
-        await execAsync(`python3 -m venv ${PYTHON_VENV_DIR}`, {
-            env: cleanEnv,
-        });
-
-        log.info('Python virtual environment initialized successfully', {
-            path: PYTHON_VENV_DIR,
-        });
-    } catch (error) {
-        const err = error as Error;
-        log.error('Failed to initialize Python environment', { error: err.message });
-        throw error;
-    }
-};
-
-/**
  * Install Node.js libraries via npm
  * Note: apify-client is pre-installed from Dockerfile
  * Dependencies object format: { "package-name": "version", ... }
@@ -191,68 +140,6 @@ export const installNodeLibraries = async (
 };
 
 /**
- * Install Python libraries via pip
- * Note: apify-client is pre-installed from Dockerfile
- * Requirements format: requirements.txt style string with one package per line
- * Example: "requests==2.31.0\npandas>=2.0.0\nnumpy"
- */
-export const installPythonLibraries = async (
-    requirementsTxt: string | undefined,
-): Promise<{
-    success: boolean;
-    installed: string[];
-    failed: { library: string; error: string }[];
-}> => {
-    if (!requirementsTxt || requirementsTxt.trim().length === 0) {
-        log.debug('No Python requirements to install');
-        return { success: true, installed: [], failed: [] };
-    }
-
-    // Parse requirements.txt format
-    const requirements = requirementsTxt
-        .split('\n')
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0 && !line.startsWith('#'));
-
-    if (requirements.length === 0) {
-        log.debug('No Python requirements to install (after parsing)');
-        return { success: true, installed: [], failed: [] };
-    }
-
-    log.info('Installing Python requirements', { count: requirements.length, requirements });
-    await setStatusMessage('Installing Python dependencies');
-
-    const installed: string[] = [];
-    const failed: { library: string; error: string }[] = [];
-
-    // Ensure Python venv exists
-    await initializePythonEnvironment();
-
-    const pipBinary = path.join(PYTHON_BIN_DIR, 'pip');
-
-    for (const requirement of requirements) {
-        try {
-            log.debug('Installing Python requirement', { requirement });
-            await execAsync(`${pipBinary} install ${requirement}`, {
-                timeout: 120000, // 2 minutes per requirement
-            });
-
-            installed.push(requirement);
-            log.debug('Python requirement installed successfully', { requirement });
-        } catch (error) {
-            const err = error as Error;
-            log.warning('Failed to install Python requirement', { requirement, error: err.message });
-            failed.push({ library: requirement, error: err.message });
-        }
-    }
-
-    const success = failed.length === 0;
-    log.info('Python requirements installation completed', { installed: installed.length, failed: failed.length });
-
-    return { success, installed, failed };
-};
-
-/**
  * Install skills via npx skills CLI
  * Skills are SKILL.md files that provide specialized instructions for AI agents
  * Uses: npx -y skills add --global --yes --all <skill>
@@ -299,18 +186,16 @@ export const installSkills = async (
 
 /**
  * Setup complete execution environment
- * Initializes both Node.js and Python environments and installs specified dependencies and skills
+ * Initializes the Node.js environment and installs specified dependencies and skills
  * In local mode (MODE=local), skips sandbox initialization
  */
 export const setupExecutionEnvironment = async (input: {
     skills?: string[];
     nodeDependencies?: Record<string, string>;
-    pythonRequirements?: string;
 }): Promise<{
     success: boolean;
     skillsSetup: { success: boolean; installed: string[]; failed: { skill: string; error: string }[] };
     nodeSetup: { success: boolean; installed: string[]; failed: { library: string; error: string }[] };
-    pythonSetup: { success: boolean; installed: string[]; failed: { library: string; error: string }[] };
     errors: string[];
 }> => {
     const isLocalMode = process.env.MODE === 'local';
@@ -324,7 +209,6 @@ export const setupExecutionEnvironment = async (input: {
             success: true,
             skillsSetup: { success: true, installed: [], failed: [] },
             nodeSetup: { success: true, installed: [], failed: [] },
-            pythonSetup: { success: true, installed: [], failed: [] },
             errors: [],
         };
     }
@@ -332,8 +216,7 @@ export const setupExecutionEnvironment = async (input: {
     const errors: string[] = [];
 
     try {
-        // Initialize both environments
-        await Promise.all([initializeNodeEnvironment(), initializePythonEnvironment()]);
+        await initializeNodeEnvironment();
     } catch (error) {
         const err = error as Error;
         errors.push(`Environment initialization failed: ${err.message}`);
@@ -341,13 +224,12 @@ export const setupExecutionEnvironment = async (input: {
     }
 
     // Install skills and dependencies
-    const [skillsSetup, nodeSetup, pythonSetup] = await Promise.all([
+    const [skillsSetup, nodeSetup] = await Promise.all([
         installSkills(input.skills),
         installNodeLibraries(input.nodeDependencies),
-        installPythonLibraries(input.pythonRequirements),
     ]);
 
-    const success = errors.length === 0 && skillsSetup.success && nodeSetup.success && pythonSetup.success;
+    const success = errors.length === 0 && skillsSetup.success && nodeSetup.success;
 
     log.info('Execution environment setup completed', {
         success,
@@ -355,15 +237,12 @@ export const setupExecutionEnvironment = async (input: {
         skillsFailed: skillsSetup.failed.length,
         nodeDependenciesInstalled: nodeSetup.installed.length,
         nodeDependenciesFailed: nodeSetup.failed.length,
-        pythonRequirementsInstalled: pythonSetup.installed.length,
-        pythonRequirementsFailed: pythonSetup.failed.length,
     });
 
     return {
         success,
         skillsSetup,
         nodeSetup,
-        pythonSetup,
         errors,
     };
 };
@@ -389,26 +268,18 @@ export const getUserEnvVars = (): Record<string, string> => ({ ...userEnvVars })
 
 /**
  * Get environment variables for code execution
- * Returns environment with paths to Python venv and Node modules
+ * Returns environment with paths to the sandbox Node modules
  */
 export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
     // Layer user-supplied vars over the process env, before our infra paths so
-    // the sandbox PATH/NODE_PATH/VIRTUAL_ENV/PYTHONHOME below always win.
+    // the sandbox PATH/NODE_PATH below always win.
     const env: NodeJS.ProcessEnv = { ...process.env, ...userEnvVars };
 
-    // Add Python venv to PATH
-    const currentPath = env.PATH || '';
-    env.PATH = `${PYTHON_BIN_DIR}:${currentPath}`;
-
     // Add Node modules to PATH
-    env.PATH = `${path.join(NODE_MODULES_DIR, '.bin')}:${env.PATH}`;
+    env.PATH = `${path.join(NODE_MODULES_DIR, '.bin')}:${env.PATH || ''}`;
 
     // Set Node.js to find modules in js-ts/node_modules
     env.NODE_PATH = NODE_MODULES_DIR;
-
-    // Set Python to use the venv
-    env.VIRTUAL_ENV = PYTHON_VENV_DIR;
-    env.PYTHONHOME = '';
 
     return env;
 };

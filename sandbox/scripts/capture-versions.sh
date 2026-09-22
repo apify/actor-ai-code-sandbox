@@ -19,13 +19,6 @@ if ! node -v > "$VERSION_DIR/node.txt" 2>&1; then
 fi
 echo "✅ Node.js: $(cat "$VERSION_DIR/node.txt")"
 
-# Capture Python version (CRITICAL - fail if not found)
-if ! python3 --version > "$VERSION_DIR/python.txt" 2>&1; then
-    echo "❌ ERROR: Python3 not found - this is a critical dependency"
-    exit 1
-fi
-echo "✅ Python: $(cat "$VERSION_DIR/python.txt")"
-
 # Capture Apify CLI version (optional)
 if apify --version > "$VERSION_DIR/apify.txt" 2>/dev/null; then
     echo "✅ Apify CLI: $(cat "$VERSION_DIR/apify.txt")"

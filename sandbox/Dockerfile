@@ -59,23 +59,22 @@ FROM node:24-trixie-slim
 #     it ttyd dies at runtime with "lws_create_context: failed to load evlib_uv"
 #     and the interactive shell never starts. Keep it when trimming this list.
 # We pass --no-install-recommends to drop the recommended-but-unused packages
-# that otherwise bloated this layer. build-essential and openssh-client are
-# recommends we DO want, so they are listed explicitly: build-essential lets
-# sandboxed code compile native node-gyp / C modules at runtime, and
-# openssh-client enables git-over-SSH. We intentionally omit python3-dev, so
-# pip relies on prebuilt wheels and cannot build Python C extensions from
-# source — add python3-dev (plus any package-specific -dev libs) if that ever
-# becomes a requirement.
+# that otherwise bloated this layer. openssh-client is a recommend we DO want
+# (it enables git-over-SSH), so it is listed explicitly.
+#
+# Deliberately NOT installed, to keep the image small:
+#   - build-essential (~254 MB): the gcc/g++ toolchain. Without it `npm install`
+#     falls back to prebuilt binaries and cannot compile native node-gyp addons
+#     from source. Users who need to build native modules can install it from
+#     the `initBashScript` input:  apt-get update && apt-get install -y build-essential
+#   - python3 and friends (~91 MB incl. the venv): the sandbox is Node-only.
+#     Install python3/python3-venv from `initBashScript` if a workload needs it.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
     curl \
     wget \
     git \
     openssh-client \
-    python3 \
-    python3-venv \
-    python3-pip \
-    build-essential \
     ca-certificates \
     libjson-c5 \
     libwebsockets19t64 \
@@ -114,13 +113,6 @@ RUN npm install -g "tsx@${TSX_VERSION}" \
 # Create sandbox directory for operations
 RUN mkdir -p /sandbox && chmod 755 /sandbox
 
-# Create Python sandbox directory with venv and pre-install apify-client
-RUN mkdir -p /sandbox/py && chmod 755 /sandbox/py && \
-    python3 -m venv /sandbox/py/venv && \
-    /sandbox/py/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    /sandbox/py/venv/bin/pip install --no-cache-dir apify-client && \
-    echo "apify-client pre-installed in Python venv"
-
 # Create JS/TS sandbox directory with proper package.json and pre-install apify-client
 RUN mkdir -p /sandbox/js-ts && chmod 755 /sandbox/js-ts && \
     cd /sandbox/js-ts && \
@@ -135,7 +127,6 @@ COPY --from=builder /build/artifacts/AGENTS.md /sandbox/CLAUDE.md
 
 # Capture baseline package state for migration persistence
 RUN mkdir -p /app && \
-    /sandbox/py/venv/bin/pip freeze > /app/.baseline-pip-freeze.txt && \
     dpkg --get-selections > /app/.baseline-dpkg.txt && \
     echo "Baseline package state captured"
 

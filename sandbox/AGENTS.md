@@ -287,7 +287,7 @@ Allowed without prompt:
 
 Ask first:
 
-- npm/pip package installations
+- npm package installations
 - apify push (deployment to cloud)
 - proxy configuration changes (requires paid plan)
 - Dockerfile changes affecting builds
@@ -368,8 +368,8 @@ GET /shell/
 
 This opens an interactive bash session with:
 
-- Custom environment variables (NODE_PATH, VIRTUAL_ENV, PATH)
-- Installed dependencies (Node.js, Python, Apify CLI, Claude Code, etc.)
+- Custom environment variables (NODE_PATH, PATH)
+- Installed dependencies (Node.js, Apify CLI, Claude Code, etc.)
 - Working directory set to `/sandbox`
 
 ### URL Argument Passing
@@ -392,7 +392,7 @@ GET /shell?arg=-c&arg=echo hello
 GET /shell?arg=-c&arg=cowsay hello
 
 # Execute a script
-GET /shell?arg=-c&arg=python script.py
+GET /shell?arg=-c&arg=bash script.sh
 
 # Run Node.js code
 GET /shell?arg=-c&arg=node -e "console.log('hello')"

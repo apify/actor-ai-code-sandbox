@@ -17,6 +17,13 @@ node_modules
 # dist folder
 dist
 
+# Incremental-build state. This is gitignored but was NOT dockerignored, so a
+# local `npm run build` before `docker build` copied a stale .tsbuildinfo into
+# the builder stage; tsc then considered the project up to date and emitted no
+# JavaScript, producing an image whose /app/dist held only templates and which
+# died at startup with "Cannot find module '/app/dist/main.js'".
+*.tsbuildinfo
+
 # tests
 tests
 

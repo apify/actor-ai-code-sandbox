@@ -31,13 +31,6 @@
                 "editor": "textarea",
                 "prefill": "# One package@version per line (omit @version for latest):\n# zod@^3.0\n# axios"
             },
-            "pythonRequirements": {
-                "title": "Python requirements",
-                "type": "string",
-                "description": "Python packages for Python code execution (/sandbox/py), in requirements.txt format — one package per line, blank lines and `#` comments are ignored.",
-                "editor": "textarea",
-                "prefill": "# One package per line:\n# requests==2.31.0\n# pandas"
-            },
             "mcpConnectors": {
                 "title": "MCP connectors",
                 "type": "array",
@@ -50,9 +43,9 @@
             "initBashScript": {
                 "title": "Setup script",
                 "type": "string",
-                "description": "Bash script execute run on startup, after Node and Python dependencies are installed. Use it to install system packages, create directories, or set up the environment.",
+                "description": "Bash script execute run on startup, after Node dependencies are installed. Use it to install system packages (e.g. `build-essential` or `python3`, which are not in the image), create directories, or set up the environment.",
                 "editor": "textarea",
-                "prefill": "#!/bin/bash\n# Runs on startup. Uncomment or add your own:\n# apt-get update && apt-get install -y jq\n# mkdir -p /sandbox/data"
+                "prefill": "#!/bin/bash\n# Runs on startup. Uncomment or add your own:\n# apt-get update && apt-get install -y build-essential python3\n# mkdir -p /sandbox/data"
             },
             "envVars": {
                 "title": "Environment variables",

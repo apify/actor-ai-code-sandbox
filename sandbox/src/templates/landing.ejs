@@ -87,14 +87,6 @@
   <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "ls -la", "<span class="hl-key">language</span>": "bash", "<span class="hl-key">cwd</span>": "/sandbox", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">5</span>}'</span></pre>
             </div>
 
-            <h3 class="example-label">Run Python code</h3>
-            <div class="code-block-wrapper">
-                <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
-                <pre class="code-block" data-lang="bash"><span class="hl-curl">curl</span> <span class="hl-flag">-X</span> <span class="hl-method">POST</span> <span class="hl-url"><%= serverUrl %>/exec</span> \
-  <span class="hl-flag">-H</span> <span class="hl-string">"Content-Type: application/json"</span> \
-  <span class="hl-flag">-d</span> <span class="hl-string">'{"<span class="hl-key">command</span>": "print(\"hello\")", "<span class="hl-key">language</span>": "py", "<span class="hl-key">timeoutSecs</span>": <span class="hl-number">10</span>}'</span></pre>
-            </div>
-
             <h3 class="example-label">Run TypeScript code</h3>
             <div class="code-block-wrapper">
                 <button class="copy-btn" data-tooltip="Click to copy" onclick="copyCode(this)">Copy</button>
@@ -111,7 +103,7 @@
     <span class="hl-key">"stdout"</span>: <span class="hl-string">"string"</span>,
     <span class="hl-key">"stderr"</span>: <span class="hl-string">"string"</span>,
     <span class="hl-key">"exitCode"</span>: <span class="hl-number">0</span>,
-    <span class="hl-key">"language"</span>: <span class="hl-string">"shell|js|ts|py"</span>
+    <span class="hl-key">"language"</span>: <span class="hl-string">"shell|js|ts"</span>
 }</pre>
             </div>
 
@@ -119,7 +111,6 @@
             <ul class="bullets">
                 <li>Shell commands: <code>/sandbox</code> (default)</li>
                 <li>JavaScript/TypeScript: <code>/sandbox/js-ts</code> (default)</li>
-                <li>Python: <code>/sandbox/py</code> (default)</li>
             </ul>
             <p class="muted">Override with <code>cwd</code> parameter (must be within <code>/sandbox</code>).</p>
         </section>

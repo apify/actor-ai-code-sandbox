@@ -30,13 +30,6 @@ export interface ActorInput {
     nodeDependencies?: string;
 
     /**
-     * Python requirements in requirements.txt format for Python code execution
-     * Format: one package per line with optional version specifiers
-     * Example: "requests==2.31.0\npandas>=2.0.0\nnumpy"
-     */
-    pythonRequirements?: string;
-
-    /**
      * Optional bash script to customize the sandbox environment
      * Runs after dependency installation in /sandbox directory
      */

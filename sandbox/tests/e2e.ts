@@ -581,26 +581,14 @@ async function runAllTests(baseUrl: string): Promise<void> {
         'Execute /exec - TypeScript with language alias',
     );
 
-    // Execute /exec - Python code
-    await testEndpointWithOutputValidation(
+    // Execute /exec - Python is no longer supported (not shipped in the image)
+    await testEndpoint(
         baseUrl,
         'POST',
         '/exec',
         { command: 'print("Hello from Python")', language: 'py' },
-        200,
-        'Hello from Python',
-        'Execute /exec - Python code',
-    );
-
-    // Execute /exec - Python with language alias
-    await testEndpointWithOutputValidation(
-        baseUrl,
-        'POST',
-        '/exec',
-        { command: 'x = 99\nprint(x)', language: 'python' },
-        200,
-        '99',
-        'Execute /exec - Python with language alias',
+        400,
+        'Execute /exec - Python language rejected',
     );
 
     // Execute /exec - bash alias (should work like shell)
@@ -656,16 +644,6 @@ async function runAllTests(baseUrl: string): Promise<void> {
         'Execute /exec - JavaScript error',
     );
 
-    // Execute /exec - Python error
-    await testEndpoint(
-        baseUrl,
-        'POST',
-        '/exec',
-        { command: 'raise ValueError("Test error")', language: 'py' },
-        500,
-        'Execute /exec - Python error',
-    );
-
     // Execute /exec - JavaScript default working directory (should be /sandbox/js-ts)
     await testEndpointWithOutputValidation(
         baseUrl,
@@ -679,17 +657,6 @@ async function runAllTests(baseUrl: string): Promise<void> {
         200,
         '/sandbox/js-ts',
         'Execute /exec - JavaScript default working directory',
-    );
-
-    // Execute /exec - Python default working directory (should be /sandbox/py)
-    await testEndpointWithOutputValidation(
-        baseUrl,
-        'POST',
-        '/exec',
-        { command: 'import os\nprint(os.getcwd())', language: 'py' },
-        200,
-        '/sandbox/py',
-        'Execute /exec - Python default working directory',
     );
 
     // ========================================================================
@@ -934,7 +901,6 @@ async function main(): Promise<void> {
 
         const input = {
             nodeDependencies: 'zod@^3.22.0',
-            pythonRequirements: 'numpy>=1.24.0',
             envVars: 'TEST_E2E_SECRET=hunter2-do-not-leak',
             initBashScript: [
                 '#!/bin/bash',
@@ -947,9 +913,7 @@ async function main(): Promise<void> {
             ].join('\n'),
         };
 
-        console.log(
-            `${colors.green}✓${colors.reset} Input prepared with zod (Node.js) and numpy (Python) dependencies\n`,
-        );
+        console.log(`${colors.green}✓${colors.reset} Input prepared with zod (Node.js) dependency\n`);
 
         // Step 2: Deploy Actor
         await deployActor(input);
@@ -1006,7 +970,7 @@ async function main(): Promise<void> {
 
         console.log('Summary:');
         console.log('  ✓ Actor deployed and started on Apify platform');
-        console.log('  ✓ Dependencies installed (zod, numpy)');
+        console.log('  ✓ Dependencies installed (zod)');
         console.log('  ✓ Init script executed');
         if (passed === total) {
             console.log(`  ✓ All ${total} REST endpoint tests passed`);

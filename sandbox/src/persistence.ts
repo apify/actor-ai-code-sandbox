@@ -13,12 +13,10 @@ import { promisify } from 'node:util';
 import { Actor, log } from 'apify';
 
 import {
-    BASELINE_PIP_FREEZE,
     JS_TS_CODE_DIR,
     KV_MIGRATION_MANIFEST,
     KV_MIGRATION_TARBALL,
     MIGRATION_EXCLUDED_PATHS,
-    PYTHON_BIN_DIR,
     STARTUP_MARKER_PATH,
 } from './consts.js';
 
@@ -35,7 +33,13 @@ const MS_PER_SECOND = 1000;
 const CLOCK_SKEW_GUARD_MS = 1000;
 
 /**
- * Migration manifest structure
+ * Migration manifest structure.
+ *
+ * Manifests written before Python was dropped from the image also carry a
+ * `packages.pip` array. Nothing reads it any more, so such a manifest still
+ * restores cleanly — its pip packages are simply ignored, which is correct
+ * now that there is no interpreter to install them into. Keep new readers
+ * tolerant of extra keys for the same reason.
  */
 export interface MigrationManifest {
     version: number;
@@ -44,7 +48,6 @@ export interface MigrationManifest {
     startupTimestamp: number;
     packages: {
         apt: string[];
-        pip: string[];
     };
     changedFiles: {
         count: number;
@@ -204,68 +207,12 @@ export const parseAptHistory = (): string[] => {
 };
 
 /**
- * Generate list of pip packages to reinstall (excluding baseline)
- * @returns Array of package specifications (name==version)
- */
-export const generatePipFreeze = async (): Promise<string[]> => {
-    const pipBinary = `${PYTHON_BIN_DIR}/pip`;
-
-    if (!existsSync(pipBinary)) {
-        log.debug('Pip binary not found, no Python packages to backup');
-        return [];
-    }
-
-    try {
-        // Get current pip freeze
-        const { stdout } = await execAsync(`${pipBinary} freeze`, { timeout: 10000 });
-        const currentPackages = new Set(
-            stdout
-                .trim()
-                .split('\n')
-                .filter((p) => p.length > 0),
-        );
-
-        // Load baseline packages if available
-        let baselinePackages = new Set<string>();
-        if (existsSync(BASELINE_PIP_FREEZE)) {
-            const baseline = readFileSync(BASELINE_PIP_FREEZE, 'utf-8');
-            baselinePackages = new Set(
-                baseline
-                    .trim()
-                    .split('\n')
-                    .filter((p) => p.length > 0),
-            );
-        }
-
-        // Filter out baseline packages (only keep newly installed)
-        const newPackages = Array.from(currentPackages).filter((pkg) => !baselinePackages.has(pkg));
-
-        log.info('Generated pip freeze', {
-            total: currentPackages.size,
-            baseline: baselinePackages.size,
-            new: newPackages.length,
-        });
-
-        if (newPackages.length > 0) {
-            log.debug('New pip packages to backup', { packages: newPackages.slice(0, 10) });
-        }
-
-        return newPackages;
-    } catch (error) {
-        log.error('Error generating pip freeze', { error: (error as Error).message });
-        return [];
-    }
-};
-
-/**
  * Generate package manifests for all package managers
  */
 export const generatePackageManifests = async (): Promise<MigrationManifest['packages']> => {
     log.info('Generating package manifests...');
 
-    const [apt, pip] = await Promise.all([Promise.resolve(parseAptHistory()), generatePipFreeze()]);
-
-    return { apt, pip };
+    return { apt: parseAptHistory() };
 };
 
 /**
@@ -356,7 +303,6 @@ export const saveMigrationState = async (): Promise<void> => {
             files: manifest.changedFiles.count,
             sizeMB: (totalSize / (1024 * 1024)).toFixed(2),
             aptPackages: manifest.packages.apt.length,
-            pipPackages: manifest.packages.pip.length,
         });
 
         // Step 3: Create tarball
@@ -376,7 +322,6 @@ export const saveMigrationState = async (): Promise<void> => {
             durationMs: saveDurationMs,
             files: changedFiles.length,
             aptPackages: packages.apt.length,
-            pipPackages: packages.pip.length,
         });
     } catch (error) {
         const saveDurationMs = Date.now() - saveStartTime;
@@ -393,10 +338,7 @@ export const saveMigrationState = async (): Promise<void> => {
  * @param packages - Package manifest
  */
 export const reinstallPackages = async (packages: MigrationManifest['packages']): Promise<void> => {
-    log.info('Reinstalling packages...', {
-        apt: packages.apt.length,
-        pip: packages.pip.length,
-    });
+    log.info('Reinstalling packages...', { apt: packages.apt.length });
 
     // Reinstall APT packages
     if (packages.apt.length > 0) {
@@ -447,46 +389,7 @@ export const reinstallPackages = async (packages: MigrationManifest['packages'])
                 const sample = packages.apt.slice(0, 20);
                 log.error(`Failed packages (first 20 of ${packages.apt.length}): ${sample.join(', ')}`);
             }
-            // Continue with pip even if apt fails
-        }
-    }
-
-    // Reinstall PIP packages
-    if (packages.pip.length > 0) {
-        try {
-            log.info(`Reinstalling ${packages.pip.length} PIP packages...`);
-
-            // Log packages in readable chunks (5 per line - pip package names can be long)
-            const chunkSize = 5;
-            for (let i = 0; i < packages.pip.length; i += chunkSize) {
-                const chunk = packages.pip.slice(i, i + chunkSize);
-                log.info(
-                    `  PIP packages [${i + 1}-${Math.min(i + chunkSize, packages.pip.length)}]: ${chunk.join(', ')}`,
-                );
-            }
-
-            // Write to temp requirements file
-            const requirementsPath = '/tmp/restore-requirements.txt';
-            writeFileSync(requirementsPath, packages.pip.join('\n'));
-
-            // Install from requirements
-            const pipBinary = `${PYTHON_BIN_DIR}/pip`;
-            const pipCommand = `${pipBinary} install -r ${requirementsPath}`;
-            log.info('Running pip install...');
-
-            await execAsync(pipCommand, { timeout: 300000 });
-
-            log.info(`Successfully reinstalled ${packages.pip.length} PIP packages`);
-        } catch (error) {
-            log.error('Failed to reinstall PIP packages', {
-                error: (error as Error).message,
-                count: packages.pip.length,
-            });
-            // Log first 10 packages that failed
-            if (packages.pip.length > 0) {
-                const sample = packages.pip.slice(0, 10);
-                log.error(`Failed packages (first 10 of ${packages.pip.length}): ${sample.join(', ')}`);
-            }
+            // Continue with the NPM restore below even if apt fails
         }
     }
 
@@ -528,7 +431,6 @@ export const restoreMigrationState = async (): Promise<boolean> => {
             createdAt: manifest.createdAt,
             files: manifest.changedFiles.count,
             aptPackages: manifest.packages.apt.length,
-            pipPackages: manifest.packages.pip.length,
         });
 
         // Step 2: Download tarball
@@ -575,7 +477,6 @@ export const restoreMigrationState = async (): Promise<boolean> => {
         log.info('Migration state restored successfully', {
             files: manifest.changedFiles.count,
             aptPackages: manifest.packages.apt.length,
-            pipPackages: manifest.packages.pip.length,
         });
 
         return true;

@@ -39,13 +39,13 @@ export const createMcpServer = () => {
         'execute',
         {
             description:
-                'Executes shell commands or code snippets (JavaScript, TypeScript, Python). Each code execution is isolated in a new process.',
+                'Executes shell commands or code snippets (JavaScript, TypeScript). Each code execution is isolated in a new process.',
             inputSchema: {
                 command: z.string().describe('Shell command or code snippet to execute'),
                 language: z
                     .string()
                     .optional()
-                    .describe('Language: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)'),
+                    .describe('Language: js, javascript, ts, typescript, bash, sh (omit for shell)'),
                 cwd: z.string().optional().describe('Working directory (overrides language defaults)'),
                 timeoutSecs: z.number().optional().describe('Timeout in seconds'),
             },

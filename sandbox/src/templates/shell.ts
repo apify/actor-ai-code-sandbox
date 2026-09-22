@@ -39,7 +39,6 @@ echo -e "\${GREEN}System info:\${NC}"
 # Read versions from cached files (fallback to runtime check if not found)
 VERSION_DIR="/app/.versions"
 NODE_VER=\$(cat "\$VERSION_DIR/node.txt" 2>/dev/null || node -v 2>/dev/null || echo 'not installed')
-PYTHON_VER=\$(cat "\$VERSION_DIR/python.txt" 2>/dev/null || python3 --version 2>&1 || echo 'not installed')
 APIFY_VER=\$(cat "\$VERSION_DIR/apify.txt" 2>/dev/null || apify --version 2>/dev/null || echo 'not installed')
 MCPC_VER=\$(cat "\$VERSION_DIR/mcpc.txt" 2>/dev/null || mcpc --version 2>/dev/null || echo 'not installed')
 CLAUDE_CODE_VER=\$(cat "\$VERSION_DIR/claude.txt" 2>/dev/null || claude --version 2>/dev/null || echo 'not installed')
@@ -47,10 +46,6 @@ OPENCODE_VER=\$(cat "\$VERSION_DIR/opencode.txt" 2>/dev/null || opencode --versi
 CODEX_VER=\$(cat "\$VERSION_DIR/codex.txt" 2>/dev/null || codex --version 2>/dev/null || echo 'not installed')
 
 echo -e "  - Node.js:       \$NODE_VER"
-echo -e "  - Python:        \$PYTHON_VER"
-if [ -n "\$VIRTUAL_ENV" ]; then
-    echo -e "  - Venv:          Active (\$VIRTUAL_ENV)"
-fi
 echo -e "  - Apify CLI:     \$APIFY_VER"
 echo -e "  - mcpc:          \$MCPC_VER (https://github.com/apify/mcpc)"
 echo -e "  - Claude Code:   \$CLAUDE_CODE_VER"
@@ -87,10 +82,8 @@ export const SANDBOX_BASHRC = `# Source global bashrc if it exists
 [ -f ~/.bashrc ] && . ~/.bashrc
 
 # Set environment to match sandbox execution
-export PATH="/root/.local/bin:/root/.opencode/bin:/sandbox/js-ts/node_modules/.bin:/sandbox/py/venv/bin:\$PATH"
+export PATH="/root/.local/bin:/root/.opencode/bin:/sandbox/js-ts/node_modules/.bin:\$PATH"
 export NODE_PATH="/sandbox/js-ts/node_modules"
-export VIRTUAL_ENV="/sandbox/py/venv"
-export PYTHONHOME=""
 
 # Configure Claude Code to use Apify OpenRouter proxy
 export ANTHROPIC_BASE_URL="https://openrouter.apify.actor/api"

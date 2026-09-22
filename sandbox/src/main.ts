@@ -74,7 +74,6 @@ log.info('Actor input retrieved', {
     mode: isLocalMode ? 'local' : 'production',
     hasSkills: skills.length > 0,
     hasNodeDependencies: Object.keys(nodeDependencies).length > 0,
-    hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
     hasInitScript: !!input?.initBashScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
     mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
@@ -108,7 +107,6 @@ if (restoredFromMigration) {
     const setupResult = await setupExecutionEnvironment({
         skills,
         nodeDependencies,
-        pythonRequirements: input?.pythonRequirements,
     });
 
     if (!setupResult.success) {
@@ -117,8 +115,6 @@ if (restoredFromMigration) {
             skillsFailed: setupResult.skillsSetup.failed,
             nodeInstalled: setupResult.nodeSetup.installed,
             nodeFailed: setupResult.nodeSetup.failed,
-            pythonInstalled: setupResult.pythonSetup.installed,
-            pythonFailed: setupResult.pythonSetup.failed,
         });
     } else {
         log.info('All dependencies and skills installed successfully');
