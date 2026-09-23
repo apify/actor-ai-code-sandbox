@@ -138,7 +138,7 @@ All inputs are optional. Set them in the Actor input form or via the API.
 | **MCP connectors** (`mcpConnectors`)           | MCP connectors to pre-load into Claude Code, Codex, and OpenCode, and write to `/sandbox/mcp.json` for `mcpc`.                                                                 |
 | **Setup script** (`initBashScript`)            | Bash script run on startup after dependencies install. Output streams to the log (tagged `[init]`) with a progress heartbeat; 5-minute timeout.                                |
 | **Environment variables** (`envVars`)          | Secret variables exposed **only to the setup script**, then removed before the shell, MCP server, and code execution start. dotenv or JSON; encrypted at rest.                 |
-| **Idle timeout** (`idleTimeoutSecs`)           | Seconds of inactivity before automatic shutdown (default `900`; `0` disables). Activity includes HTTP requests and shell interaction.                                          |
+| **Idle timeout** (`idleTimeoutSecs`)           | Seconds of inactivity before automatic shutdown (default `900`; `0` disables). Activity: HTTP requests, terminal input, bridge traffic (not WebSocket pings).                  |
 | **Bridges** (`bridges`)                        | Bridges to create at startup (see above).                                                                                                                                      |
 
 Dependencies install at startup before any code runs. For cost efficiency, set the Actor's **Execution Timeout to 0 (infinite)** and let the idle timeout manage the lifecycle. Note that every request to the Actor has a 5-minute ceiling, so each operation must finish within that window.

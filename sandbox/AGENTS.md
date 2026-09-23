@@ -331,6 +331,7 @@ src/
 ├── environment.ts                # Sandbox env setup, dependency installation, init script
 ├── persistence.ts                # Migration state save/restore across platform migrations
 ├── idle.ts                       # Activity tracking + idle auto-shutdown
+├── ws-activity.ts                # WebSocket frame parser: data frames = activity, keepalives ignored (pure)
 ├── status.ts                     # Actor run status messages (best-effort)
 ├── env-vars.ts                   # envVars input parser
 ├── node-deps.ts                  # nodeDependencies input parser

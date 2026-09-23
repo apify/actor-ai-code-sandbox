@@ -15,6 +15,7 @@ import httpProxy from 'http-proxy';
 import { getBridges, onBridgesChange } from './bridges.js';
 import { touchActivity } from './idle.js';
 import type { Bridge } from './types.js';
+import { createWsActivityDetector } from './ws-activity.js';
 
 /** Live reverse-proxy instance backing one bridge. */
 interface BridgeProxy {
@@ -195,7 +196,8 @@ export const handleBridgeUpgrade = (req: IncomingMessage, socket: Duplex, head: 
         targetUrl: match.entry.targetOrigin + req.url,
     });
 
-    socket.on('data', touchActivity);
+    // Data frames count as activity; ping/pong keepalives don't.
+    socket.on('data', createWsActivityDetector(touchActivity));
     match.entry.proxy.ws(req, socket, head);
     return true;
 };

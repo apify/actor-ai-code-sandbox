@@ -37,6 +37,7 @@ import {
     nextTtydRestartDelayMs,
     TTYD_RESTART_MIN_MS,
 } from './ttyd.js';
+import { createWsActivityDetector } from './ws-activity.js';
 
 const SHELL_PORT = 7681;
 
@@ -239,8 +240,9 @@ export const handleShellUpgrade = (req: IncomingMessage, socket: Duplex, head: B
     req.url = toTtydUrl(req.url);
     log.info('Proxying shell WebSocket upgrade', { url: req.url });
 
-    // Terminal keystrokes count as sandbox activity.
-    socket.on('data', touchActivity);
+    // Terminal keystrokes count as sandbox activity; ttyd's 5 s ping/pong
+    // keepalive does not, so an idle open tab doesn't block idle shutdown.
+    socket.on('data', createWsActivityDetector(touchActivity));
 
     wsProxy.ws(req, socket, head);
     return true;

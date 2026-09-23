@@ -18,9 +18,9 @@ Review of `sandbox/` performed 2026-09-22 at commit `2770239`. The quick wins we
 
 ## 1. High: fix before or right after launch
 
-### 1.1 Idle timeout is still defeated by an open shell tab
+### 1.1 ~~Idle timeout is still defeated by an open shell tab~~ (fixed)
 
-ttyd pings the browser every 5 s (`--ping-interval` default), the browser pongs, and `shell-server.ts` counts every inbound socket byte as activity. An idle terminal tab keeps the Actor alive indefinitely. Options: parse WebSocket frames and ignore opcode `0xA`, or run ttyd with a long `--ping-interval` and accept slower dead-connection detection. Then document what "activity" means.
+Proxied WebSockets (`/shell` and bridges) now parse client frames (`src/ws-activity.ts`) and count only data frames as activity; ping/pong/close keepalives are ignored.
 
 ### 1.2 Migration persistence can lose data and is expensive
 
