@@ -40,7 +40,7 @@ Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never up
 
 ## 2. Medium
 
-- **Path containment is inconsistent with the docs.** Every check uses `startsWith('/sandbox')`, which also matches `/sandboxx`. REST writes only `path.normalize` (a symlink inside `/sandbox` escapes), reads/deletes use `realpath`. MCP `read-file`/`write-file`/`list-files` do no containment at all. Shell `cwd` is not validated although the README says it must stay in `/sandbox`. Either enforce uniformly (`p === DIR || p.startsWith(DIR + '/')`, realpath of the parent for new files) or document `/sandbox` as a convention, not a boundary.
+- ~~**Path containment is inconsistent with the docs.**~~ (fixed): every user-supplied path (`/fs`, MCP `read-file`/`write-file`/`list-files`, `/exec` and MCP `execute` `cwd` for all languages) goes through `src/sandbox-path.ts`, which resolves symlinks (including for not-yet-existing files and dangling links) and checks containment on a segment boundary.
 - **Bridge matching and validation.** `matchBridge` is a raw prefix (`/app` captures `/application`); match on segment boundary. `PUT /bridges` stores values unnormalised unlike `POST`. No reserved-path check (`/fs`, `/exec`, `/mcp`, `/shell`, `/bridges`, `/health`, `/browse`, `/llms.txt`, `/`). The file watcher only handles `change`, so atomic saves (`rename`) are missed. `.bridges.json` content is not shape-validated. Every proxy is recreated on any change.
 - **`/health` can never report `initializing`.** The server starts listening only after setup completes, so the 503 branch and the README section are dead. Either listen first and gate routes behind 503 until ready (better UX), or remove both.
 - **Log hygiene.** `routes/mcp.ts` logs full JSON-RPC bodies (including `write-file` contents) at `info`; `routes/exec.ts` logs the first 100 chars of every command at `info`. Move to `debug`.
@@ -63,7 +63,7 @@ Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never up
 
 ## 4. Documentation
 
-- `README.md`: remove the `503 initializing` state (or implement it); "cwd must stay within /sandbox" is not enforced for shell; "validated to stay inside it" overstates `/fs` write containment; describe persistence exclusions and size caveats once 1.2 lands; state the no-auth model explicitly.
+- `README.md`: remove the `503 initializing` state (or implement it); describe persistence exclusions and size caveats once 1.2 lands; state the no-auth model explicitly.
 - `sandbox/AGENTS.md` (dev guide): drop template leftovers (fill `generatedBy`, Crawlee/Cheerio advice, standby readiness-probe section, `?arg=` as the documented way to run a command).
 - `artifacts/AGENTS.md` (shipped to agents): lead with the pre-configured MCP path; trim the "CRITICAL" repetition.
 - `.actor/actor.json` `meta.generatedBy` is stale.

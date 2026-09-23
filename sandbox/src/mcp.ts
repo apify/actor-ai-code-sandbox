@@ -93,7 +93,7 @@ export const createMcpServer = () => {
         {
             description: 'Writes content to a file in the sandbox',
             inputSchema: {
-                path: z.string().describe('File path to write to'),
+                path: z.string().describe('File path to write to (relative to /sandbox; must stay inside /sandbox)'),
                 content: z.string().describe('Content to write to the file'),
                 mode: z.number().optional().describe('File mode (permissions)'),
             },
@@ -125,7 +125,7 @@ export const createMcpServer = () => {
             description:
                 'Reads file contents from the sandbox. To read only a part of a file (e.g., specific lines), use the execute tool with utilities like sed, head, tail, or grep (e.g., "sed -n 10,20p file.txt" to read lines 10-20).',
             inputSchema: {
-                path: z.string().describe('File path to read from'),
+                path: z.string().describe('File path to read from (relative to /sandbox; must stay inside /sandbox)'),
             },
         },
         async ({ path }: { path: string }): Promise<CallToolResult> => {
@@ -154,7 +154,12 @@ export const createMcpServer = () => {
         {
             description: 'Lists files and directories in a sandbox path',
             inputSchema: {
-                path: z.string().optional().describe('Directory path to list (defaults to current directory)'),
+                path: z
+                    .string()
+                    .optional()
+                    .describe(
+                        'Directory path to list (relative to /sandbox, defaults to /sandbox; must stay inside /sandbox)',
+                    ),
             },
         },
         async ({ path }: { path?: string }): Promise<CallToolResult> => {
