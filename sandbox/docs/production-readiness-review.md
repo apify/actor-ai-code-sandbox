@@ -42,9 +42,9 @@ Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never up
 
 - ~~**Path containment is inconsistent with the docs.**~~ (fixed): every user-supplied path (`/fs`, MCP `read-file`/`write-file`/`list-files`, `/exec` and MCP `execute` `cwd` for all languages) goes through `src/sandbox-path.ts`, which resolves symlinks (including for not-yet-existing files and dangling links) and checks containment on a segment boundary.
 - **Bridge matching and validation.** `matchBridge` is a raw prefix (`/app` captures `/application`); match on segment boundary. `PUT /bridges` stores values unnormalised unlike `POST`. No reserved-path check (`/fs`, `/exec`, `/mcp`, `/shell`, `/bridges`, `/health`, `/browse`, `/llms.txt`, `/`). The file watcher only handles `change`, so atomic saves (`rename`) are missed. `.bridges.json` content is not shape-validated. Every proxy is recreated on any change.
-- **`/health` can never report `initializing`.** The server starts listening only after setup completes, so the 503 branch and the README section are dead. Either listen first and gate routes behind 503 until ready (better UX), or remove both.
-- **Log hygiene.** `routes/mcp.ts` logs full JSON-RPC bodies (including `write-file` contents) at `info`; `routes/exec.ts` logs the first 100 chars of every command at `info`. Move to `debug`.
-- **MCP transport cleanup.** `res.on('close')` is registered after `await transport.handleRequest(...)`, so for ordinary JSON responses it often never fires and `transport.close()`/`mcpServer.close()` are skipped. Register first. `GET`/`DELETE /mcp` return 404; spec expects 405.
+- ~~**`/health` can never report `initializing`.**~~ (fixed): the dead 503 `initializing` branch and its README line were removed; the server still starts listening only after setup completes.
+- ~~**Log hygiene.**~~ (fixed): `routes/mcp.ts` logs only the JSON-RPC method and tool name, at `debug`; `routes/exec.ts` logs the command length at `info` and the 100-char preview only at `debug`.
+- ~~**MCP transport cleanup.**~~ (fixed): `res.on('close')` is registered before `handleRequest`, so the transport and server are always closed. `GET`/`DELETE /mcp` return 405 with `Allow: POST`.
 - **`Content-Disposition` header can throw** (`ERR_INVALID_CHAR`) for filenames with CR/LF and is not RFC 5987-encoded for non-ASCII. Use the `content-disposition` package.
 - **Stale manifest after a failed restore.** If the manifest exists but the tarball is missing, startup proceeds fresh but leaves the manifest to be re-read next time.
 - **ttyd binds all interfaces.** Add `-i 127.0.0.1`.
@@ -63,7 +63,7 @@ Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never up
 
 ## 4. Documentation
 
-- `README.md`: remove the `503 initializing` state (or implement it); describe persistence exclusions and size caveats once 1.2 lands; state the no-auth model explicitly.
+- `README.md`: describe persistence exclusions and size caveats once 1.2 lands; state the no-auth model explicitly.
 - `sandbox/AGENTS.md` (dev guide): drop template leftovers (fill `generatedBy`, Crawlee/Cheerio advice, standby readiness-probe section, `?arg=` as the documented way to run a command).
 - `artifacts/AGENTS.md` (shipped to agents): lead with the pre-configured MCP path; trim the "CRITICAL" repetition.
 - `.actor/actor.json` `meta.generatedBy` is stale.

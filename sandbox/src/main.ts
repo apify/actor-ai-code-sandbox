@@ -26,7 +26,7 @@ import { initializePersistence, restoreMigrationState, saveMigrationState } from
 import { createBridgesRouter } from './routes/bridges.js';
 import { handleExec } from './routes/exec.js';
 import { createFsRouter } from './routes/fs.js';
-import { handleMcp } from './routes/mcp.js';
+import { handleMcp, handleMcpMethodNotAllowed } from './routes/mcp.js';
 import { handleShellUpgrade, registerShellRoutes, startShellBackend } from './shell-server.js';
 import { parseSkills } from './skills.js';
 import { setStatusMessage } from './status.js';
@@ -38,8 +38,9 @@ import type { ActorInput } from './types.js';
 // Startup sequence
 // ============================================================================
 
-// Track initialization state for the /health endpoint
-let initializationComplete = false;
+// Setup failure reason reported by /health. The HTTP server only starts
+// listening after the whole startup sequence, so there is no "initializing"
+// state to report.
 let initializationError: string | null = null;
 
 // In local mode (MODE=local) the sandbox directories, dependency installation,
@@ -172,8 +173,6 @@ if (!isLocalMode) {
     });
 }
 
-// Mark initialization as complete
-initializationComplete = true;
 touchActivity();
 log.info('Actor startup complete - ready for requests');
 await setStatusMessage('Sandbox is live');
@@ -245,14 +244,6 @@ app.use('/bridges', createBridgesRouter());
 
 // Health check endpoint
 app.get('/health', (_req: Request, res: Response) => {
-    if (!initializationComplete) {
-        res.status(503).json({
-            status: 'initializing',
-            message: 'Actor is initializing dependencies and running init script',
-        });
-        return;
-    }
-
     if (initializationError) {
         res.status(503).json({
             status: 'unhealthy',
@@ -271,6 +262,8 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // MCP endpoint (Streamable HTTP transport)
 app.post('/mcp', handleMcp);
+app.get('/mcp', handleMcpMethodNotAllowed);
+app.delete('/mcp', handleMcpMethodNotAllowed);
 
 // Execute shell command or code (unified endpoint)
 app.post('/exec', handleExec);
