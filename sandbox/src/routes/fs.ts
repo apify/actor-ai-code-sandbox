@@ -163,8 +163,10 @@ const handleGet = async (req: Request, res: Response): Promise<void> => {
                 }
 
                 const dirName = filePath.split('/').filter(Boolean).pop() || 'sandbox';
+                // res.attachment() encodes the name per RFC 6266/5987, so quotes,
+                // CR/LF and non-ASCII characters can't break or reject the header.
+                res.attachment(`${dirName}.zip`);
                 res.setHeader('Content-Type', 'application/zip');
-                res.setHeader('Content-Disposition', `attachment; filename="${dirName}.zip"`);
 
                 log.info('REST GET /fs streaming ZIP', { path: zipResult.path });
                 zipResult.stream.on('error', (err) => {
@@ -202,13 +204,15 @@ const handleGet = async (req: Request, res: Response): Promise<void> => {
             // including a client disconnect or a header error below.
             res.on('close', () => stream.destroy());
 
-            res.setHeader('Content-Type', fileResult.mimeType || 'application/octet-stream');
-            res.setHeader('Content-Length', String(fileResult.size));
-
             if (download) {
                 const fileName = filePath.split('/').filter(Boolean).pop() || 'file';
-                res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+                // Safely encoded (see above). Also sets Content-Type from the
+                // extension, which the explicit header below overrides.
+                res.attachment(fileName);
             }
+
+            res.setHeader('Content-Type', fileResult.mimeType || 'application/octet-stream');
+            res.setHeader('Content-Length', String(fileResult.size));
 
             log.info('REST GET /fs streaming file', {
                 path: fileResult.path,

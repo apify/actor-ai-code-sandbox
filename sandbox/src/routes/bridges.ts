@@ -7,7 +7,14 @@ import { log } from 'apify';
 import type { Request, Response } from 'express';
 import { Router } from 'express';
 
-import { addBridge, getBridges, removeBridge, saveBridges } from '../bridges.js';
+import {
+    addBridge,
+    BridgeValidationError,
+    getBridges,
+    normalizeBridgePath,
+    removeBridge,
+    replaceBridges,
+} from '../bridges.js';
 import { wildcardPath } from '../route-params.js';
 
 // GET / - Current bridges
@@ -20,65 +27,42 @@ const handleGet = (_req: Request, res: Response): void => {
     }
 };
 
+/** Map a validation failure to 400 and anything else (e.g. a failed write) to 500. */
+const sendError = (res: Response, action: string, error: unknown): void => {
+    if (error instanceof BridgeValidationError) {
+        res.status(400).json({ error: error.message });
+        return;
+    }
+    log.error(`Failed to ${action}`, { error: (error as Error).message });
+    res.status(500).json({ error: (error as Error).message });
+};
+
 // PUT / - Replace all bridges
 const handlePut = (req: Request, res: Response): void => {
     try {
-        const { bridges } = req.body;
-
-        if (!Array.isArray(bridges)) {
-            res.status(400).json({ error: 'bridges must be an array' });
-            return;
-        }
-
-        for (const bridge of bridges) {
-            if (!bridge.path || typeof bridge.path !== 'string') {
-                res.status(400).json({ error: 'Each bridge must have a path string' });
-                return;
-            }
-            if (!bridge.target || typeof bridge.target !== 'string') {
-                res.status(400).json({
-                    error: 'Each bridge must have a target string (full URL like http://127.0.0.1:3000/myapp)',
-                });
-                return;
-            }
-        }
-
-        saveBridges(bridges);
-        log.info('Bridges updated via API', { count: bridges.length });
+        replaceBridges(req.body?.bridges);
+        log.info('Bridges updated via API', { count: getBridges().length });
         res.json({ success: true, bridges: getBridges() });
     } catch (error) {
-        log.error('Failed to update bridges', { error: (error as Error).message });
-        res.status(500).json({ error: (error as Error).message });
+        sendError(res, 'update bridges', error);
     }
 };
 
 // POST / - Add a single bridge
 const handlePost = (req: Request, res: Response): void => {
     try {
-        const { path, target } = req.body;
-
-        if (!path || typeof path !== 'string') {
-            res.status(400).json({ error: 'path is required (e.g., /myapp)' });
-            return;
-        }
-        if (!target || typeof target !== 'string') {
-            res.status(400).json({ error: 'target is required (full URL like http://127.0.0.1:3000/myapp)' });
-            return;
-        }
-
-        addBridge({ path, target });
-        log.info('Bridge added via API', { path, target });
+        addBridge(req.body);
+        log.info('Bridge added via API', { path: req.body?.path, target: req.body?.target });
         res.json({ success: true, bridges: getBridges() });
     } catch (error) {
-        log.error('Failed to add bridge', { error: (error as Error).message });
-        res.status(500).json({ error: (error as Error).message });
+        sendError(res, 'add bridge', error);
     }
 };
 
 // DELETE /*path - Remove the bridge exposed at that path
 const handleDelete = (req: Request, res: Response): void => {
     try {
-        const pathToRemove = `/${wildcardPath(req.params.path)}`;
+        const pathToRemove = normalizeBridgePath(wildcardPath(req.params.path));
 
         const removed = removeBridge(pathToRemove);
         if (removed) {

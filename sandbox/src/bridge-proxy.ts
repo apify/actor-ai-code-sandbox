@@ -19,6 +19,8 @@ import { createWsActivityDetector } from './ws-activity.js';
 
 /** Live reverse-proxy instance backing one bridge. */
 interface BridgeProxy {
+    /** The configured target the proxy was built for; unchanged targets keep their proxy. */
+    target: string;
     proxy: ReturnType<typeof httpProxy.createProxyServer>;
     targetOrigin: string;
     targetPath: string;
@@ -27,13 +29,16 @@ interface BridgeProxy {
 const bridgeProxies = new Map<string, BridgeProxy>();
 
 /**
- * Find the bridge whose exposed path is the longest prefix of the request
- * path, or null when none matches.
+ * Find the bridge whose exposed path is the longest segment-aligned prefix of
+ * the request path, or null when none matches. `/app` matches `/app` and
+ * `/app/x` but not `/application`. Bridge paths are normalized without a
+ * trailing slash (see bridges.ts).
  */
 export const matchBridge = (bridges: Bridge[], requestPath: string): Bridge | null => {
     let matched: Bridge | null = null;
     for (const bridge of bridges) {
-        if (requestPath.startsWith(bridge.path) && bridge.path.length > (matched?.path.length ?? 0)) {
+        const isMatch = requestPath === bridge.path || requestPath.startsWith(`${bridge.path}/`);
+        if (isMatch && bridge.path.length > (matched?.path.length ?? 0)) {
             matched = bridge;
         }
     }
@@ -115,7 +120,7 @@ const setupBridge = (bridge: Bridge): void => {
         }
     });
 
-    bridgeProxies.set(bridge.path, { proxy, targetOrigin, targetPath });
+    bridgeProxies.set(bridge.path, { target: bridge.target, proxy, targetOrigin, targetPath });
     log.info('Bridge proxy configured', { exposedPath: bridge.path, targetOrigin, targetPath });
 };
 
@@ -145,8 +150,12 @@ export const initializeBridgeProxies = (): void => {
                 removeBridgeProxy(path);
             }
         }
+        // Only (re)create proxies whose target changed, so unrelated edits
+        // don't drop in-flight connections on every other bridge.
         for (const bridge of newBridges) {
-            setupBridge(bridge);
+            if (bridgeProxies.get(bridge.path)?.target !== bridge.target) {
+                setupBridge(bridge);
+            }
         }
     });
 };
