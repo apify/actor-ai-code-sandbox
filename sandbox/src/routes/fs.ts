@@ -6,32 +6,101 @@
  * `/*path` with the same handlers, so the /fs root needs no special-cased
  * copies.
  *
- * IMPORTANT: this router must be mounted BEFORE express.json() — PUT/POST
- * bodies are raw bytes (any content type), and the JSON body parser would
- * consume them.
+ * PUT/POST bodies are raw bytes (any content type) streamed straight to disk,
+ * and file reads are streamed back, so large files never sit in memory.
+ * IMPORTANT: this router must be mounted BEFORE express.json(), which would
+ * consume the body.
  */
+import type { Transform } from 'node:stream';
+import zlib from 'node:zlib';
+
 import { log } from 'apify';
 import type { Request, Response } from 'express';
-import express, { Router } from 'express';
+import { Router } from 'express';
 import mime from 'mime-types';
 
+import { BodyTooLargeError } from '../file-stream.js';
 import {
-    appendFile,
     createDirectory,
     createZipArchive,
     deleteFileOrDirectory,
     listFilesDetailed,
-    readFileBinary,
+    openFileForRead,
     statPath,
-    writeFileBinary,
+    writeFileFromStream,
 } from '../operations.js';
 import { wildcardPath } from '../route-params.js';
 
-/** Raw request bodies up to this size are accepted for PUT and POST. */
-const RAW_BODY_LIMIT = '500mb';
+/** Raw request bodies up to this many (decoded) bytes are accepted for PUT and POST. */
+const RAW_BODY_LIMIT_BYTES = 500 * 1024 * 1024;
 
 /** The sandbox-relative path addressed by the request ('' = /sandbox root). */
 const requestedPath = (req: Request): string => wildcardPath(req.params.path);
+
+/**
+ * Decompressor for the request's Content-Encoding: undefined for an
+ * uncompressed body, null for an unsupported encoding.
+ */
+const bodyDecoder = (req: Request): Transform | undefined | null => {
+    const encoding = (req.headers['content-encoding'] || 'identity').toLowerCase();
+    switch (encoding) {
+        case 'identity':
+            return undefined;
+        case 'gzip':
+        case 'x-gzip':
+            return zlib.createGunzip();
+        case 'deflate':
+            return zlib.createInflate();
+        case 'br':
+            return zlib.createBrotliDecompress();
+        default:
+            return null;
+    }
+};
+
+/**
+ * Stream the request body into `filePath` and send the JSON response. Shared
+ * by PUT (replace) and POST ?append=1.
+ */
+const receiveFile = async (req: Request, res: Response, filePath: string, append: boolean): Promise<void> => {
+    const op = append ? 'POST /fs append' : 'PUT /fs';
+
+    const declaredLength = Number(req.headers['content-length']);
+    if (!req.headers['content-encoding'] && declaredLength > RAW_BODY_LIMIT_BYTES) {
+        res.setHeader('Connection', 'close');
+        res.status(413).json({ error: `Request body exceeds the ${RAW_BODY_LIMIT_BYTES}-byte limit`, path: filePath });
+        return;
+    }
+
+    const decoder = bodyDecoder(req);
+    if (decoder === null) {
+        res.status(415).json({ error: `Unsupported Content-Encoding: ${req.headers['content-encoding']}` });
+        return;
+    }
+
+    try {
+        const result = await writeFileFromStream(filePath, req, { append, maxBytes: RAW_BODY_LIMIT_BYTES, decoder });
+        log.info(`REST ${op} completed successfully`, { path: result.path, size: result.size });
+        res.status(200).json({ success: true, path: result.path, size: result.size });
+    } catch (error) {
+        const err = error as Error;
+        log.warning(`REST ${op} failed`, { path: filePath, error: err.message });
+        // pipeline() destroys req on failure; the socket survives only if the
+        // body had been fully received, so reply only while it is still open.
+        if (res.headersSent || !res.socket || res.socket.destroyed) {
+            return;
+        }
+        if (err instanceof BodyTooLargeError) {
+            // Don't keep the connection alive for the rest of an oversize body.
+            res.setHeader('Connection', 'close');
+            res.status(413).json({ error: err.message, path: filePath });
+        } else if ((err as NodeJS.ErrnoException).code?.startsWith('Z_')) {
+            res.status(400).json({ error: `Invalid compressed body: ${err.message}`, path: filePath });
+        } else {
+            res.status(500).json({ error: err.message, path: filePath });
+        }
+    }
+};
 
 // HEAD / and /*path - File or directory metadata
 const handleHead = async (req: Request, res: Response): Promise<void> => {
@@ -119,28 +188,38 @@ const handleGet = async (req: Request, res: Response): Promise<void> => {
                 res.json(listResult);
             }
         } else {
-            // File: return raw bytes with appropriate Content-Type
-            const fileResult = await readFileBinary(filePath);
+            // File: stream raw bytes with appropriate Content-Type
+            const fileResult = await openFileForRead(filePath);
 
-            if (fileResult.error || !fileResult.content) {
+            if (fileResult.error || !fileResult.stream) {
                 log.warning('REST GET /fs file read failed', { path: filePath, error: fileResult.error });
                 res.status(404).json({ error: fileResult.error || 'Failed to read file', path: filePath });
                 return;
             }
 
+            const { stream } = fileResult;
+            // Release the file handle when the response ends for any reason,
+            // including a client disconnect or a header error below.
+            res.on('close', () => stream.destroy());
+
             res.setHeader('Content-Type', fileResult.mimeType || 'application/octet-stream');
+            res.setHeader('Content-Length', String(fileResult.size));
 
             if (download) {
                 const fileName = filePath.split('/').filter(Boolean).pop() || 'file';
                 res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
             }
 
-            log.info('REST GET /fs file read completed', {
+            log.info('REST GET /fs streaming file', {
                 path: fileResult.path,
                 size: fileResult.size,
                 mimeType: fileResult.mimeType,
             });
-            res.send(fileResult.content);
+            stream.on('error', (err) => {
+                log.error('REST GET /fs file stream error', { path: fileResult.path, error: err.message });
+                res.destroy(err);
+            });
+            stream.pipe(res);
         }
     } catch (error) {
         log.error('REST GET /fs error', { error });
@@ -152,11 +231,10 @@ const handleGet = async (req: Request, res: Response): Promise<void> => {
 const handlePut = async (req: Request, res: Response): Promise<void> => {
     try {
         const filePath = requestedPath(req);
-        const content = req.body;
 
         log.info('REST PUT /fs request received', {
             path: filePath,
-            contentLength: content?.length,
+            contentLength: req.headers['content-length'],
             contentType: req.headers['content-type'],
         });
 
@@ -165,21 +243,7 @@ const handlePut = async (req: Request, res: Response): Promise<void> => {
             return;
         }
 
-        if (!content) {
-            res.status(400).json({ error: 'Content is required' });
-            return;
-        }
-
-        const result = await writeFileBinary(filePath, content);
-
-        if (!result.success) {
-            log.warning('REST PUT /fs failed', { path: filePath, error: result.error });
-            res.status(500).json({ error: result.error, path: filePath });
-            return;
-        }
-
-        log.info('REST PUT /fs completed successfully', { path: result.path, size: result.size });
-        res.status(200).json({ success: true, path: result.path, size: result.size });
+        await receiveFile(req, res, filePath, false);
     } catch (error) {
         log.error('REST PUT /fs error', { error });
         res.status(500).json({ error: (error as Error).message });
@@ -222,23 +286,7 @@ const handlePost = async (req: Request, res: Response): Promise<void> => {
             log.info('REST POST /fs mkdir completed successfully', { path: result.path });
             res.status(201).json({ success: true, path: result.path, type: 'directory' });
         } else {
-            const content = req.body;
-
-            if (!content) {
-                res.status(400).json({ error: 'Content is required for append operation' });
-                return;
-            }
-
-            const result = await appendFile(filePath, content);
-
-            if (!result.success) {
-                log.warning('REST POST /fs append failed', { path: filePath, error: result.error });
-                res.status(500).json({ error: result.error, path: filePath });
-                return;
-            }
-
-            log.info('REST POST /fs append completed successfully', { path: result.path, size: result.size });
-            res.status(200).json({ success: true, path: result.path, size: result.size });
+            await receiveFile(req, res, filePath, true);
         }
     } catch (error) {
         log.error('REST POST /fs error', { error });
@@ -284,13 +332,12 @@ const handleDelete = async (req: Request, res: Response): Promise<void> => {
 /** Build the /fs router. Mount with `app.use('/fs', createFsRouter())`. */
 export const createFsRouter = (): Router => {
     const router = Router();
-    const rawBody = express.raw({ type: '*/*', limit: RAW_BODY_LIMIT });
 
     // '/' covers /fs and /fs/; '/*path' covers everything below.
     router.head(['/', '/*path'], handleHead);
     router.get(['/', '/*path'], handleGet);
-    router.put('/*path', rawBody, handlePut);
-    router.post('/*path', rawBody, handlePost);
+    router.put('/*path', handlePut);
+    router.post('/*path', handlePost);
     router.delete('/*path', handleDelete);
 
     return router;

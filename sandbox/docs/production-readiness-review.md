@@ -33,10 +33,10 @@ Proxied WebSockets (`/shell` and bridges) now parse client frames (`src/ws-activ
 
 Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never upload when `find` failed; extend `MIGRATION_EXCLUDED_PATHS` (`/root/.local`, `/root/.opencode`, `/root/.codex/bin`, `/root/.npm`, `/root/.cache`, `/usr`, `/var/log`); re-run the lazy agent installers on restore instead of shipping binaries; check tar's exit code; cap tarball size.
 
-### 1.3 `/exec` and `/fs` resource limits
+### 1.3 ~~`/exec` and `/fs` resource limits~~ (fixed)
 
 - ~~`exec()` 1 MB `maxBuffer` and no default timeout~~ (fixed): `/exec` and the MCP `execute` tool run through `src/process-runner.ts`. Output is capped at 10 MB per stream with a truncation marker, the default timeout is 300 s, and a timeout kills the whole process group.
-- `/fs` buffers whole request bodies (up to 500 MB) and whole files in memory. Stream both directions.
+- ~~`/fs` buffers whole request bodies (up to 500 MB) and whole files in memory~~ (fixed): uploads stream to a temp file next to the target and are then renamed (PUT) or appended (POST `?append=1`) into place, so an aborted or oversize upload leaves the file untouched; downloads stream from disk. The 500 MB cap is enforced on the decoded byte count (413).
 
 ## 2. Medium
 
@@ -58,7 +58,6 @@ Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never up
 - `package.json` placeholders: `author`, `license: ISC`, `version: 0.0.1`; `@types/archiver` and `@types/mime-types` are in `dependencies`.
 - Dockerfile uses `npm install` rather than `npm ci` / `npm ci --omit=dev`.
 - `isLocalMode` is computed in four modules.
-- `PUT /fs` with a body but no `Content-Type` yields a confusing "Content is required" 400.
 - e2e harness picks the latest run on the whole account (`apify runs ls --limit 1`); parse the run ID from `apify call` instead. Add an e2e case that `import`s an installed npm dependency and one that checks a pip version pin.
 - `http-proxy@1.18.1` has had no release since 2020; plan a replacement.
 

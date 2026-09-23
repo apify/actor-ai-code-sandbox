@@ -2,7 +2,7 @@
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { Readable } from 'node:stream';
+import type { Readable, Transform } from 'node:stream';
 
 import { log } from 'apify';
 import { ZipArchive } from 'archiver';
@@ -10,6 +10,7 @@ import mime from 'mime-types';
 
 import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
 import { getExecutionEnvironment } from './environment.js';
+import { writeStreamToFile } from './file-stream.js';
 import { runProcess } from './process-runner.js';
 
 /** Subdirectory (inside /sandbox/js-ts and /sandbox/py) holding transient code snippets. */
@@ -406,33 +407,42 @@ export const statPath = async (
 };
 
 /**
- * Read file contents as Buffer (for binary files)
+ * Open a file inside /sandbox for streaming. The file is opened up front so
+ * permission and not-found errors surface here rather than mid-response.
  */
-export const readFileBinary = async (
+export const openFileForRead = async (
     filePath: string,
 ): Promise<{
-    content?: Buffer;
+    stream?: Readable;
     path: string;
     size?: number;
     mimeType?: string;
     error?: string;
 }> => {
-    log.debug('readFileBinary called', { path: filePath });
+    log.debug('openFileForRead called', { path: filePath });
     try {
         const resolvedPath = await resolveAndValidatePath(filePath);
-        const content = await fs.readFile(resolvedPath);
-        const mimeType = mime.lookup(resolvedPath) || 'application/octet-stream';
-
-        log.debug('readFileBinary succeeded', { path: resolvedPath, size: content.length, mimeType });
-        return {
-            content,
-            path: resolvedPath,
-            size: content.length,
-            mimeType,
-        };
+        const handle = await fs.open(resolvedPath, 'r');
+        try {
+            const stats = await handle.stat();
+            if (!stats.isFile()) {
+                throw new Error(`Not a regular file: ${filePath}`);
+            }
+            const mimeType = mime.lookup(resolvedPath) || 'application/octet-stream';
+            log.debug('openFileForRead succeeded', { path: resolvedPath, size: stats.size, mimeType });
+            return {
+                stream: handle.createReadStream(),
+                path: resolvedPath,
+                size: stats.size,
+                mimeType,
+            };
+        } catch (error) {
+            await handle.close();
+            throw error;
+        }
     } catch (error) {
         const err = error as Error;
-        log.debug('readFileBinary failed', { path: filePath, error: err.message });
+        log.debug('openFileForRead failed', { path: filePath, error: err.message });
         return {
             path: filePath,
             error: err.message,
@@ -441,108 +451,28 @@ export const readFileBinary = async (
 };
 
 /**
- * Write file contents (supports both string and Buffer)
+ * Stream `content` into a file inside /sandbox, replacing it or (with
+ * `append`) appending to it. Fails with BodyTooLargeError past `maxBytes`;
+ * the target is left untouched on any failure.
  */
-export const writeFileBinary = async (
+export const writeFileFromStream = async (
     filePath: string,
-    content: string | Buffer,
-    mode?: number,
-): Promise<{
-    success: boolean;
-    path: string;
-    size?: number;
-    error?: string;
-}> => {
-    log.debug('writeFileBinary called', { path: filePath, contentLength: content.length, mode });
-    try {
-        // Resolve path relative to /sandbox if it's a relative path
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
+    content: Readable,
+    options: { append?: boolean; maxBytes: number; decoder?: Transform },
+): Promise<{ path: string; size: number }> => {
+    log.debug('writeFileFromStream called', { path: filePath, append: options.append });
 
-        // Validate path is within sandbox (before file exists)
-        const normalizedPath = path.normalize(resolvedPath);
-        if (!normalizedPath.startsWith(SANDBOX_DIR)) {
-            throw new Error(`Access denied: Path ${filePath} resolves outside of sandbox`);
-        }
-
-        // Ensure directory exists
-        const dir = path.dirname(normalizedPath);
-        await fs.mkdir(dir, { recursive: true });
-
-        // Write the file
-        await fs.writeFile(normalizedPath, content);
-
-        // Set file mode if specified
-        if (mode) {
-            await fs.chmod(normalizedPath, mode);
-        }
-
-        const size = Buffer.isBuffer(content) ? content.length : Buffer.byteLength(content, 'utf8');
-
-        log.debug('writeFileBinary succeeded', { path: normalizedPath, size });
-        return {
-            success: true,
-            path: normalizedPath,
-            size,
-        };
-    } catch (error) {
-        const err = error as Error;
-        log.debug('writeFileBinary failed', { path: filePath, error: err.message });
-        return {
-            success: false,
-            path: filePath,
-            error: err.message,
-        };
+    // Resolve path relative to /sandbox if it's a relative path, and validate
+    // it stays inside (before the file exists)
+    const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
+    const normalizedPath = path.normalize(resolvedPath);
+    if (!normalizedPath.startsWith(SANDBOX_DIR)) {
+        throw new Error(`Access denied: Path ${filePath} resolves outside of sandbox`);
     }
-};
 
-/**
- * Append content to a file
- */
-export const appendFile = async (
-    filePath: string,
-    content: string | Buffer,
-): Promise<{
-    success: boolean;
-    path: string;
-    size?: number;
-    error?: string;
-}> => {
-    log.debug('appendFile called', { path: filePath, contentLength: content.length });
-    try {
-        // Resolve path relative to /sandbox if it's a relative path
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
-
-        // Validate path is within sandbox
-        const normalizedPath = path.normalize(resolvedPath);
-        if (!normalizedPath.startsWith(SANDBOX_DIR)) {
-            throw new Error(`Access denied: Path ${filePath} resolves outside of sandbox`);
-        }
-
-        // Ensure directory exists
-        const dir = path.dirname(normalizedPath);
-        await fs.mkdir(dir, { recursive: true });
-
-        // Append to the file
-        await fs.appendFile(normalizedPath, content);
-
-        // Get final size
-        const stats = await fs.stat(normalizedPath);
-
-        log.debug('appendFile succeeded', { path: normalizedPath, size: stats.size });
-        return {
-            success: true,
-            path: normalizedPath,
-            size: stats.size,
-        };
-    } catch (error) {
-        const err = error as Error;
-        log.debug('appendFile failed', { path: filePath, error: err.message });
-        return {
-            success: false,
-            path: filePath,
-            error: err.message,
-        };
-    }
+    const size = await writeStreamToFile(content, normalizedPath, options);
+    log.debug('writeFileFromStream succeeded', { path: normalizedPath, size });
+    return { path: normalizedPath, size };
 };
 
 /**
