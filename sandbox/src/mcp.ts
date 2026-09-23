@@ -47,7 +47,7 @@ export const createMcpServer = () => {
                     .optional()
                     .describe('Language: js, javascript, ts, typescript, py, python, bash, sh (omit for shell)'),
                 cwd: z.string().optional().describe('Working directory (overrides language defaults)'),
-                timeoutSecs: z.number().optional().describe('Timeout in seconds'),
+                timeoutSecs: z.number().optional().describe('Timeout in seconds (default 300)'),
             },
         },
         async ({
