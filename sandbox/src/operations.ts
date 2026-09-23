@@ -1,10 +1,8 @@
 // Abstracted operations for sandbox functionality
-import { exec } from 'node:child_process';
 import crypto from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { Readable } from 'node:stream';
-import { promisify } from 'node:util';
 
 import { log } from 'apify';
 import { ZipArchive } from 'archiver';
@@ -12,29 +10,10 @@ import mime from 'mime-types';
 
 import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
 import { getExecutionEnvironment } from './environment.js';
-
-const execAsync = promisify(exec);
+import { runProcess } from './process-runner.js';
 
 /** Subdirectory (inside /sandbox/js-ts and /sandbox/py) holding transient code snippets. */
 const EXEC_TEMP_DIRNAME = '.exec';
-
-/** Shape of the error `child_process.exec` rejects with. */
-interface ExecError {
-    message: string;
-    stdout?: string;
-    stderr?: string;
-    /** Numeric exit status, `null` when killed by a signal, or a string errno/error code (e.g. `ERR_CHILD_PROCESS_STDIO_MAXBUFFER`). */
-    code?: number | string | null;
-    signal?: string | null;
-}
-
-/**
- * Always report a numeric exit code. `exec` sets `code` to `null` when the
- * process was killed by a signal (e.g. timeout) and to a string when Node
- * itself aborted the run (e.g. maxBuffer exceeded) — both must not leak into
- * the `exitCode` field, which is documented and typed as a number.
- */
-export const toExitCode = (err: ExecError): number => (typeof err.code === 'number' ? err.code : 1);
 
 /**
  * Resolve directory path relative to SANDBOX_DIR
@@ -92,34 +71,15 @@ export const runCommand = async (
     exitCode: number;
 }> => {
     log.debug('runCommand called', { command, cwd, timeout });
-    try {
-        const execOptions: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv } = {
-            env: getExecutionEnvironment(),
-            // Use /sandbox as default working directory
-            cwd: cwd || SANDBOX_DIR,
-        };
-        if (timeout) {
-            execOptions.timeout = timeout;
-        }
-
-        const { stdout, stderr } = await execAsync(command, execOptions);
-
-        log.debug('runCommand succeeded', { command, cwd: execOptions.cwd, exitCode: 0 });
-        return {
-            stdout,
-            stderr,
-            exitCode: 0,
-        };
-    } catch (error) {
-        const err = error as ExecError;
-        const exitCode = toExitCode(err);
-        log.debug('runCommand failed', { command, error: err.message, exitCode });
-        return {
-            stdout: err.stdout || '',
-            stderr: err.stderr || err.message || '',
-            exitCode,
-        };
-    }
+    const execCwd = cwd || SANDBOX_DIR;
+    // Same shell `child_process.exec` used, so command semantics are unchanged.
+    const { stdout, stderr, exitCode } = await runProcess('/bin/sh', ['-c', command], {
+        cwd: execCwd,
+        env: getExecutionEnvironment(),
+        timeoutMs: timeout,
+    });
+    log.debug('runCommand finished', { command, cwd: execCwd, exitCode });
+    return { stdout, stderr, exitCode };
 };
 
 /**
@@ -335,18 +295,8 @@ export const executeCode = async (
         await fs.writeFile(tempFile, code, 'utf8');
         tempFiles.push(tempFile);
 
-        let command: string;
+        const interpreters: Record<string, string> = { js: 'node', ts: 'tsx', py: 'python' };
         let executionDir: string = languageDir;
-
-        // Build command based on language
-        if (language === 'js') {
-            command = `node ${tempFile}`;
-        } else if (language === 'ts') {
-            command = `tsx ${tempFile}`;
-        } else {
-            // language === 'py'
-            command = `python ${tempFile}`;
-        }
 
         // If custom cwd is provided, use it (after validation)
         if (cwd) {
@@ -366,32 +316,21 @@ export const executeCode = async (
             executionDir = normalizedCwd;
         }
 
-        const execOptions: { cwd?: string; timeout?: number; env?: NodeJS.ProcessEnv } = {
-            env: getExecutionEnvironment(),
+        const { stdout, stderr, exitCode } = await runProcess(interpreters[language], [tempFile], {
             cwd: executionDir,
-        };
+            env: getExecutionEnvironment(),
+            timeoutMs: timeout,
+        });
 
-        if (timeout) {
-            execOptions.timeout = timeout;
-        }
-
-        const { stdout, stderr } = await execAsync(command, execOptions);
-
-        log.debug('executeCode succeeded', { language, exitCode: 0 });
-        return {
-            stdout,
-            stderr,
-            exitCode: 0,
-            language,
-        };
+        log.debug('executeCode finished', { language, exitCode });
+        return { stdout, stderr, exitCode, language };
     } catch (error) {
-        const err = error as ExecError;
-        const exitCode = toExitCode(err);
-        log.debug('executeCode failed', { language, error: err.message, exitCode });
+        const err = error as Error;
+        log.debug('executeCode failed', { language, error: err.message });
         return {
-            stdout: err.stdout || '',
-            stderr: err.stderr || err.message || 'Code execution failed',
-            exitCode,
+            stdout: '',
+            stderr: err.message || 'Code execution failed',
+            exitCode: 1,
             language,
         };
     } finally {
@@ -418,7 +357,8 @@ export const execute = async (options: {
     timeoutSecs?: number;
 }): Promise<{ stdout: string; stderr: string; exitCode: number; language: string }> => {
     const { command, language, cwd, timeoutSecs } = options;
-    const timeoutMs = timeoutSecs ? timeoutSecs * 1000 : undefined;
+    // Missing or non-positive → the runner's default (DEFAULT_EXEC_TIMEOUT_MS).
+    const timeoutMs = timeoutSecs && timeoutSecs > 0 ? timeoutSecs * 1000 : undefined;
 
     if (!language || language === 'shell') {
         const result = await runCommand(command, cwd, timeoutMs);

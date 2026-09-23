@@ -35,8 +35,7 @@ Do: snapshot only when `isMigrating` (or throttle heavily); add a lock; never up
 
 ### 1.3 `/exec` and `/fs` resource limits
 
-- `exec()` uses Node's default 1 MB `maxBuffer`; larger output kills the command. Set a generous `maxBuffer` with a truncation marker.
-- No default timeout; `sleep infinity` outlives the platform's 5-minute request ceiling and the process keeps running. Add a default (e.g. 300 s) and kill the process group.
+- ~~`exec()` 1 MB `maxBuffer` and no default timeout~~ (fixed): `/exec` and the MCP `execute` tool run through `src/process-runner.ts`. Output is capped at 10 MB per stream with a truncation marker, the default timeout is 300 s, and a timeout kills the whole process group.
 - `/fs` buffers whole request bodies (up to 500 MB) and whole files in memory. Stream both directions.
 
 ## 2. Medium

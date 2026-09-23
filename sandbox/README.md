@@ -69,6 +69,8 @@ Tools exposed: `execute` (shell / JS / TS / Python), `read-file`, `write-file`, 
 - Body: `{ command: string; language?: string; cwd?: string; timeoutSecs?: number }`
 - `language`: `bash`/`sh` (or omit) for shell; `js`/`javascript`, `ts`/`typescript`, `py`/`python` for code.
 - Returns `{ stdout, stderr, exitCode, language }` — `200` on success, `500` on a non-zero exit or error.
+- `timeoutSecs` defaults to `300`. On timeout the command's whole process tree is killed and `exitCode` is `124`. A process killed by a signal reports `128 + signal` (e.g. `137` for `SIGKILL`).
+- `stdout` and `stderr` are each capped at 10 MB. Output past the cap is dropped (the command keeps running) and a `[output truncated: …]` line is appended. stdin is closed.
 
 ```bash
 curl -X POST https://UNIQUE-ID.runs.apify.net/exec \
