@@ -40,7 +40,7 @@
             "mcpConnectors": {
                 "title": "MCP connectors",
                 "type": "array",
-                "description": "One or more MCP connectors that will be available to the sandbox. They are pre-configured in Claude Code, Codex, and OpenCode, as well as written to `/sandbox/mcp.json` so tools like `mcpc connect` pick them up immediately.",
+                "description": "One or more MCP connectors that will be available to the sandbox. They are pre-configured in Claude Code, Codex, and OpenCode, as well as written to `/sandbox/mcp.json` so tools like `mcpc connect /sandbox/mcp.json` pick them up immediately.",
                 "resourceType": "mcpConnector",
                 "mcpServers": [{ "url": "*" }],
                 "editor": "resourcePicker",

@@ -181,6 +181,8 @@ mcpc connect "$URL" @user1 --header "Authorization: Bearer $APIFY_TOKEN"
 mcpc @user1 tools-list --json
 ```
 
+To connect every entry at once, name the file explicitly: `mcpc connect /sandbox/mcp.json`. A bare `mcpc connect` run inside `/sandbox` skips these entries, because it refuses to expand `${APIFY_TOKEN}` from config files found in the current directory.
+
 ### 🚨 CRITICAL: Connect to Apify MCP Server First
 
 **Before using any MCP commands, you MUST create a named connection.** Direct URL connections are deprecated — always use named sessions with `@apify`.
