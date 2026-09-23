@@ -123,7 +123,6 @@ Bridges can also be set via the `bridges` input or by writing `/sandbox/.bridges
 `GET /health` reports the service state:
 
 - `200 { status: "healthy", idleTimeoutSecs, remainingSecs? }`
-- `503 { status: "initializing" }` — dependencies / setup script still running.
 - `503 { status: "unhealthy", message }` — setup failed; check the run log.
 
 `remainingSecs` counts down to idle shutdown and is present only while an idle timeout is active.

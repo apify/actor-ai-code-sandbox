@@ -11,7 +11,8 @@ export const handleExec = async (req: Request, res: Response): Promise<void> => 
     try {
         const { command, language, cwd, timeoutSecs } = req.body;
 
-        log.info('REST /exec request received', { command: command?.substring(0, 100), language, cwd, timeoutSecs });
+        log.info('REST /exec request received', { commandLength: command?.length, language, cwd, timeoutSecs });
+        log.debug('REST /exec command', { command: command?.substring(0, 100) });
 
         if (!command) {
             res.status(400).json({ error: 'Command is required' });
