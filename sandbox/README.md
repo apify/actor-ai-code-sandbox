@@ -82,7 +82,7 @@ Default working directories: shell → `/sandbox`, JS/TS → `/sandbox/js-ts`, P
 
 ## 📁 Filesystem API — `/fs`
 
-Direct file operations over HTTP. All paths are relative to `/sandbox` and validated to stay inside it.
+Direct file operations over HTTP. All paths are relative to `/sandbox` and validated to stay inside it (symlinks are resolved, so a link pointing outside `/sandbox` is rejected). The MCP file tools apply the same rule.
 
 - `GET /fs/{path}` — read a file (raw bytes) or list a directory (JSON `{ path, entries }`). Add `?download=1` to get a file as an attachment or a directory as a ZIP.
 - `PUT /fs/{path}` — write/replace a file (creates parent dirs; up to 500 MB).

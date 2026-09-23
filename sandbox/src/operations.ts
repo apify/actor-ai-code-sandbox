@@ -12,52 +12,10 @@ import { JS_TS_CODE_DIR, PYTHON_CODE_DIR, SANDBOX_DIR } from './consts.js';
 import { getExecutionEnvironment } from './environment.js';
 import { writeStreamToFile } from './file-stream.js';
 import { runProcess } from './process-runner.js';
+import { resolveSandboxPath } from './sandbox-path.js';
 
 /** Subdirectory (inside /sandbox/js-ts and /sandbox/py) holding transient code snippets. */
 const EXEC_TEMP_DIRNAME = '.exec';
-
-/**
- * Resolve directory path relative to SANDBOX_DIR
- * @param dirPath - The directory path to resolve (optional)
- * @returns Resolved absolute path
- */
-const resolveDirectoryPath = (dirPath?: string): string => {
-    if (!dirPath) {
-        return SANDBOX_DIR;
-    }
-    if (path.isAbsolute(dirPath)) {
-        return dirPath;
-    }
-    return path.join(SANDBOX_DIR, dirPath);
-};
-
-/**
- * Resolve and validate file path relative to SANDBOX_DIR
- * Ensures the resolved path stays within /sandbox directory
- * @param filePath - The file path to resolve
- * @returns Resolved absolute path
- * @throws Error if path attempts to escape /sandbox
- */
-const resolveAndValidatePath = async (filePath: string): Promise<string> => {
-    // Resolve path relative to SANDBOX_DIR if not absolute
-    const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
-
-    // Resolve symlinks and normalize path to get the real path
-    let realPath: string;
-    try {
-        realPath = await fs.realpath(resolvedPath);
-    } catch {
-        // If file doesn't exist yet, use normalized path
-        realPath = path.normalize(resolvedPath);
-    }
-
-    // Ensure the path is within SANDBOX_DIR
-    if (!realPath.startsWith(SANDBOX_DIR)) {
-        throw new Error(`Access denied: Path ${filePath} resolves outside of sandbox`);
-    }
-
-    return realPath;
-};
 
 /**
  * Execute a shell command
@@ -97,8 +55,7 @@ export const writeFile = async (
 }> => {
     log.debug('writeFile called', { path: filePath, contentLength: content.length, mode });
     try {
-        // Resolve path relative to /sandbox if it's a relative path
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
+        const resolvedPath = await resolveSandboxPath(filePath);
 
         // Ensure directory exists
         const dir = path.dirname(resolvedPath);
@@ -140,8 +97,7 @@ export const readFile = async (
 }> => {
     log.debug('readFile called', { path: filePath });
     try {
-        // Resolve path relative to /sandbox if it's a relative path
-        const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
+        const resolvedPath = await resolveSandboxPath(filePath);
 
         const content = await fs.readFile(resolvedPath, 'utf8');
 
@@ -177,7 +133,7 @@ export const listFiles = async (
     log.debug('listFiles called', { path: dirPath });
     try {
         // Use /sandbox as default, or resolve relative paths relative to /sandbox
-        const targetPath = resolveDirectoryPath(dirPath);
+        const targetPath = await resolveSandboxPath(dirPath);
 
         const entries = await fs.readdir(targetPath, { withFileTypes: true });
 
@@ -194,10 +150,9 @@ export const listFiles = async (
         };
     } catch (error) {
         const err = error as Error;
-        const targetPath = resolveDirectoryPath(dirPath);
-        log.debug('listFiles failed', { path: targetPath, error: err.message });
+        log.debug('listFiles failed', { path: dirPath, error: err.message });
         return {
-            path: targetPath,
+            path: dirPath || SANDBOX_DIR,
             files: [],
             error: err.message,
         };
@@ -297,25 +252,8 @@ export const executeCode = async (
         tempFiles.push(tempFile);
 
         const interpreters: Record<string, string> = { js: 'node', ts: 'tsx', py: 'python' };
-        let executionDir: string = languageDir;
-
-        // If custom cwd is provided, use it (after validation)
-        if (cwd) {
-            const resolvedCwd = path.isAbsolute(cwd) ? cwd : path.join(SANDBOX_DIR, cwd);
-            const normalizedCwd = path.normalize(resolvedCwd);
-
-            // Validate cwd is within sandbox
-            if (!normalizedCwd.startsWith(SANDBOX_DIR)) {
-                return {
-                    stdout: '',
-                    stderr: `Access denied: Working directory ${cwd} is outside of sandbox`,
-                    exitCode: 1,
-                    language,
-                };
-            }
-
-            executionDir = normalizedCwd;
-        }
+        // cwd is validated by execute()
+        const executionDir = cwd || languageDir;
 
         const { stdout, stderr, exitCode } = await runProcess(interpreters[language], [tempFile], {
             cwd: executionDir,
@@ -361,11 +299,27 @@ export const execute = async (options: {
     // Missing or non-positive → the runner's default (DEFAULT_EXEC_TIMEOUT_MS).
     const timeoutMs = timeoutSecs && timeoutSecs > 0 ? timeoutSecs * 1000 : undefined;
 
-    if (!language || language === 'shell') {
-        const result = await runCommand(command, cwd, timeoutMs);
+    const effectiveLanguage = !language || language === 'shell' ? 'shell' : language;
+
+    let resolvedCwd: string | undefined;
+    if (cwd) {
+        try {
+            resolvedCwd = await resolveSandboxPath(cwd);
+        } catch {
+            return {
+                stdout: '',
+                stderr: `Access denied: Working directory ${cwd} is outside of sandbox`,
+                exitCode: 1,
+                language: effectiveLanguage,
+            };
+        }
+    }
+
+    if (effectiveLanguage === 'shell') {
+        const result = await runCommand(command, resolvedCwd, timeoutMs);
         return { ...result, language: 'shell' };
     }
-    return executeCode(command, language, timeoutMs, cwd);
+    return executeCode(command, effectiveLanguage, timeoutMs, resolvedCwd);
 };
 
 /**
@@ -383,7 +337,7 @@ export const statPath = async (
 }> => {
     log.debug('statPath called', { path: filePath });
     try {
-        const resolvedPath = await resolveAndValidatePath(filePath);
+        const resolvedPath = await resolveSandboxPath(filePath);
         const stats = await fs.stat(resolvedPath);
 
         log.debug('statPath succeeded', { path: resolvedPath, type: stats.isDirectory() ? 'directory' : 'file' });
@@ -421,7 +375,7 @@ export const openFileForRead = async (
 }> => {
     log.debug('openFileForRead called', { path: filePath });
     try {
-        const resolvedPath = await resolveAndValidatePath(filePath);
+        const resolvedPath = await resolveSandboxPath(filePath);
         const handle = await fs.open(resolvedPath, 'r');
         try {
             const stats = await handle.stat();
@@ -462,13 +416,8 @@ export const writeFileFromStream = async (
 ): Promise<{ path: string; size: number }> => {
     log.debug('writeFileFromStream called', { path: filePath, append: options.append });
 
-    // Resolve path relative to /sandbox if it's a relative path, and validate
-    // it stays inside (before the file exists)
-    const resolvedPath = path.isAbsolute(filePath) ? filePath : path.join(SANDBOX_DIR, filePath);
-    const normalizedPath = path.normalize(resolvedPath);
-    if (!normalizedPath.startsWith(SANDBOX_DIR)) {
-        throw new Error(`Access denied: Path ${filePath} resolves outside of sandbox`);
-    }
+    // Validate the path stays inside /sandbox (works before the file exists)
+    const normalizedPath = await resolveSandboxPath(filePath);
 
     const size = await writeStreamToFile(content, normalizedPath, options);
     log.debug('writeFileFromStream succeeded', { path: normalizedPath, size });
@@ -487,14 +436,8 @@ export const createDirectory = async (
 }> => {
     log.debug('createDirectory called', { path: dirPath });
     try {
-        // Resolve path relative to /sandbox if it's a relative path
-        const resolvedPath = path.isAbsolute(dirPath) ? dirPath : path.join(SANDBOX_DIR, dirPath);
-
-        // Validate path is within sandbox
-        const normalizedPath = path.normalize(resolvedPath);
-        if (!normalizedPath.startsWith(SANDBOX_DIR)) {
-            throw new Error(`Access denied: Path ${dirPath} resolves outside of sandbox`);
-        }
+        // Resolve relative to /sandbox and validate it stays inside
+        const normalizedPath = await resolveSandboxPath(dirPath);
 
         // Create directory recursively
         await fs.mkdir(normalizedPath, { recursive: true });
@@ -528,7 +471,7 @@ export const deleteFileOrDirectory = async (
 }> => {
     log.debug('deleteFileOrDirectory called', { path: filePath, recursive });
     try {
-        const resolvedPath = await resolveAndValidatePath(filePath);
+        const resolvedPath = await resolveSandboxPath(filePath);
 
         // Check if path exists and get its type
         const stats = await fs.stat(resolvedPath);
@@ -583,11 +526,9 @@ export const listFilesDetailed = async (
 }> => {
     log.debug('listFilesDetailed called', { path: dirPath });
     try {
-        // Use /sandbox as default, or resolve relative paths relative to /sandbox
-        const targetPath = resolveDirectoryPath(dirPath);
-
-        // Validate path is within sandbox
-        const resolvedPath = await resolveAndValidatePath(targetPath);
+        // Use /sandbox as default, or resolve relative paths relative to /sandbox,
+        // and validate it stays inside
+        const resolvedPath = await resolveSandboxPath(dirPath);
 
         const entries = await fs.readdir(resolvedPath, { withFileTypes: true });
 
@@ -623,10 +564,9 @@ export const listFilesDetailed = async (
         };
     } catch (error) {
         const err = error as Error;
-        const targetPath = resolveDirectoryPath(dirPath);
-        log.debug('listFilesDetailed failed', { path: targetPath, error: err.message });
+        log.debug('listFilesDetailed failed', { path: dirPath, error: err.message });
         return {
-            path: targetPath,
+            path: dirPath || SANDBOX_DIR,
             type: 'directory',
             entries: [],
             error: err.message,
@@ -646,7 +586,7 @@ export const createZipArchive = async (
 }> => {
     log.debug('createZipArchive called', { path: dirPath });
     try {
-        const resolvedPath = await resolveAndValidatePath(dirPath);
+        const resolvedPath = await resolveSandboxPath(dirPath);
 
         // Check if path is a directory
         const stats = await fs.stat(resolvedPath);
