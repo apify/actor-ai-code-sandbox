@@ -9,20 +9,24 @@ This document contains instructions for AI coding agents working inside the Apif
 When sharing data with users, **NEVER return just storage IDs or raw API URLs** — they require authentication.
 **ALWAYS generate signed public URLs** that work without authentication.
 
+### 🚨 CRITICAL: Create a New Storage for Your Outputs
+
+The sandbox Actor run's own default storages are **not available** to you: the `ACTOR_*` environment variables (e.g. `ACTOR_DEFAULT_DATASET_ID`, `ACTOR_DEFAULT_KEY_VALUE_STORE_ID`) are not set, so `apify actor set-value` and `apify actor push-data` do **not** work. Instead:
+
+1. **Create a new storage** with `apify-client` (`get_or_create()` / `getOrCreate()` without a name creates a fresh unnamed storage).
+2. **Write your outputs** into it.
+3. **Generate a signed public URL** and share it with the user.
+4. **Save the storage ID** to a file (e.g. `/sandbox/output-storage.json`) and reuse it for further outputs in the same session, instead of creating a new storage every time.
+
+If you only want to share the results of an Actor you ran, you don't need a new storage at all: generate a signed URL for that run's dataset or key-value store directly (see [Using Apify Actors](#using-apify-actors)).
+
 ### Key-Value Stores (Files & Binary Data)
 
 Use for: Documents, images, videos, archives, large text files, non-JSON data
 
-**Upload Commands:**
-
-- Set JSON value: `apify actor set-value <KEY> '<JSON_DATA>'`
-- Set text: `apify actor set-value <KEY> "text" --content-type text/plain`
-- Upload file: `cat <FILE> | apify actor set-value <KEY> --content-type <MIME_TYPE>`
-- Delete key: `apify actor set-value <KEY>` (no value)
-
 **Common content types:** `text/plain`, `text/csv`, `application/json`, `application/pdf`, `image/png`, `image/jpeg`, `application/zip`
 
-**Generate Public URL (Python):**
+**Upload a file and generate a public URL (Python):**
 
 ```python
 from apify_client import ApifyClient
@@ -30,28 +34,38 @@ import os
 
 client = ApifyClient(os.environ['APIFY_TOKEN'])
 
-# 🚨 CRITICAL: Use ACTOR_DEFAULT_KEY_VALUE_STORE_ID environment variable
-store_id = os.environ['ACTOR_DEFAULT_KEY_VALUE_STORE_ID']
+# Create a new unnamed key-value store for outputs
+store_id = client.key_value_stores().get_or_create().id
 store = client.key_value_store(store_id)
 
-# Generate signed public URL (no parameters)
-public_url = store.get_record_public_url('MYFILE.pdf')
+with open('/sandbox/report.pdf', 'rb') as f:
+    store.set_record('report.pdf', f.read(), content_type='application/pdf')
+
+# Generate signed public URL
+public_url = store.get_record_public_url('report.pdf')
 print(f"Share this URL: {public_url}")
 ```
 
-**Generate Public URL (JavaScript):**
+**Upload a file and generate a public URL (JavaScript):**
 
 ```javascript
 import { ApifyClient } from 'apify-client';
+import fs from 'fs/promises';
 
 const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
 
-// 🚨 CRITICAL: Use ACTOR_DEFAULT_KEY_VALUE_STORE_ID environment variable
-const storeId = process.env.ACTOR_DEFAULT_KEY_VALUE_STORE_ID;
+// Create a new unnamed key-value store for outputs
+const { id: storeId } = await client.keyValueStores().getOrCreate();
 const store = client.keyValueStore(storeId);
 
-// Generate signed public URL (no parameters)
-const publicUrl = await store.getRecordPublicUrl('MYFILE.pdf');
+await store.setRecord({
+    key: 'report.pdf',
+    value: await fs.readFile('/sandbox/report.pdf'),
+    contentType: 'application/pdf',
+});
+
+// Generate signed public URL
+const publicUrl = await store.getRecordPublicUrl('report.pdf');
 console.log(`Share this URL: ${publicUrl}`);
 ```
 
@@ -59,13 +73,7 @@ console.log(`Share this URL: ${publicUrl}`);
 
 Use for: JSON objects/arrays, API responses, scraped data, tabular data
 
-**Upload Commands:**
-
-- Push single item: `apify actor push-data '{"title": "Example", "value": 42}'`
-- Push array: `apify actor push-data '[{"title": "A"}, {"title": "B"}]'`
-- Pipe from file: `cat data.json | apify actor push-data`
-
-**Generate Public URL (Python):**
+**Push items and generate a public URL (Python):**
 
 ```python
 from apify_client import ApifyClient
@@ -73,25 +81,32 @@ import os
 
 client = ApifyClient(os.environ['APIFY_TOKEN'])
 
-# 🚨 CRITICAL: Use ACTOR_DEFAULT_DATASET_ID environment variable
-dataset_id = os.environ['ACTOR_DEFAULT_DATASET_ID']
+# Create a new unnamed dataset for outputs
+dataset_id = client.datasets().get_or_create().id
 dataset = client.dataset(dataset_id)
+
+dataset.push_items([{'title': 'A', 'value': 1}, {'title': 'B', 'value': 2}])
 
 # Generate signed public URL (no parameters)
 public_url = dataset.create_items_public_url()
 print(f"Share this URL: {public_url}")
 ```
 
-**Generate Public URL (JavaScript):**
+**Push items and generate a public URL (JavaScript):**
 
 ```javascript
 import { ApifyClient } from 'apify-client';
 
 const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
 
-// 🚨 CRITICAL: Use ACTOR_DEFAULT_DATASET_ID environment variable
-const datasetId = process.env.ACTOR_DEFAULT_DATASET_ID;
+// Create a new unnamed dataset for outputs
+const { id: datasetId } = await client.datasets().getOrCreate();
 const dataset = client.dataset(datasetId);
+
+await dataset.pushItems([
+    { title: 'A', value: 1 },
+    { title: 'B', value: 2 },
+]);
 
 // Generate signed public URL (no parameters)
 const publicUrl = await dataset.createItemsPublicUrl();
@@ -99,6 +114,8 @@ console.log(`Share this URL: ${publicUrl}`);
 ```
 
 Datasets support JSON, CSV, and Excel export formats.
+
+**Note:** Unnamed storages are removed after the user's data retention period. If the user needs the outputs kept permanently, pass a `name` to `get_or_create()` / `getOrCreate()` to create a named storage instead.
 
 ## Environment
 
@@ -109,7 +126,7 @@ Pre-configured and ready:
 - **jq** for JSON processing
 - **Environment variables:**
     - **`APIFY_TOKEN`** - API authentication token
-    - Other Apify platform variables (`ACTOR_*`, e.g. default storage IDs) are only set if the sandbox was started with **Pass Apify platform environment variables** enabled
+    - Other Apify platform variables (`ACTOR_*`, e.g. default storage IDs) are **not** set — create your own storages for outputs (see above)
 
 ### 🚨 CRITICAL: APIFY_TOKEN Already Available in Environment
 
@@ -320,13 +337,13 @@ Apify MCP server provides access to thousands of pre-built Actors for web scrapi
     ```
 
 5. **Write TWO separate scripts** to minimize costly errors:
-    - **Script 1**: Run Actor and save results to file (expensive operation - isolate it)
-    - **Script 2**: Generate signed URLs from saved file (cheap - can re-run if needed)
+    - **Script 1**: Run Actor, process results, and save the output storage ID to a file (expensive operation - isolate it)
+    - **Script 2**: Generate signed URLs from the saved storage ID (cheap - can re-run if needed)
     - **Why split?** Running Actors is expensive and time-consuming. If URL generation fails, you can fix and re-run just that part without re-running the Actor.
     - **Python scripts**: Write to `/sandbox/py/` (choose when you need pandas, data analysis, or Python ecosystem)
     - **JS/TS scripts**: Write to `/sandbox/js-ts/` (choose for general web scraping tasks or JavaScript ecosystem)
 
-6. **Run Script 1** - Execute the Actor and save dataset ID to file
+6. **Run Script 1** - Execute the Actor, push processed results to a new dataset, and save its ID to a file
 
 7. **Run Script 2** - Generate signed public URLs from the saved dataset ID
 
@@ -339,7 +356,7 @@ Apify MCP server provides access to thousands of pre-built Actors for web scrapi
 Running Actors is expensive and time-consuming. If URL generation fails, you don't want to re-run the entire Actor. Split your workflow:
 
 - **Script 1**: Run Actor + process and save results (expensive, run once)
-- **Script 2**: Generate signed URLs from Actor default stores (cheap, can retry)
+- **Script 2**: Generate signed URLs from the saved dataset ID (cheap, can retry)
 
 **Script 1: Run Actor and Process Results**
 
@@ -362,16 +379,20 @@ async def main():
 
     # Fetch and process results from Actor's dataset
     # Use iterate_items() for memory-efficient batch processing
-    dataset_client = client.dataset(run['defaultDatasetId'])
     processed_results = []
-    async for item in dataset_client.iterate_items():
+    async for item in client.dataset(run.default_dataset_id).iterate_items():
         processed_results.append({...})  # Extract needed fields
 
-    # Save processed results to file
-    with open('/sandbox/py/results.json', 'w') as f:
-        json.dump(processed_results, f, indent=2)
+    # Push processed results to a new unnamed dataset
+    # (if you don't need processing, skip this and save run.default_dataset_id instead)
+    output_dataset_id = (await client.datasets().get_or_create()).id
+    await client.dataset(output_dataset_id).push_items(processed_results)
 
-    print(f"✅ Processed {len(processed_results)} items → /sandbox/py/results.json")
+    # Save the dataset ID for Script 2
+    with open('/sandbox/py/output.json', 'w') as f:
+        json.dump({'datasetId': output_dataset_id}, f)
+
+    print(f"✅ Pushed {len(processed_results)} items to dataset {output_dataset_id}")
     print("Now run: venv/bin/python 2_generate_urls.py")
 
 if __name__ == '__main__':
@@ -382,20 +403,21 @@ if __name__ == '__main__':
 
 ```python
 # File: /sandbox/py/2_generate_urls.py
-# See "Generate Public URL" section for datasets above
+# See "Datasets" section above
 
 from apify_client import ApifyClient
+import json
 import os
 
 def main():
     client = ApifyClient(os.environ['APIFY_TOKEN'])
 
-    # 🚨 CRITICAL: Use ACTOR_DEFAULT_DATASET_ID environment variable
-    dataset_id = os.environ['ACTOR_DEFAULT_DATASET_ID']
-    dataset = client.dataset(dataset_id)
+    # Read the dataset ID saved by Script 1
+    with open('/sandbox/py/output.json') as f:
+        dataset_id = json.load(f)['datasetId']
 
     # Generate signed public URL (NO parameters)
-    public_url = dataset.create_items_public_url()
+    public_url = client.dataset(dataset_id).create_items_public_url()
 
     print(f"🔗 SIGNED PUBLIC URL:")
     print(public_url)
@@ -421,7 +443,7 @@ cd /sandbox/py && venv/bin/python 2_generate_urls.py
 Running Actors is expensive and time-consuming. If URL generation fails, you don't want to re-run the entire Actor. Split your workflow:
 
 - **Script 1**: Run Actor + process and save results (expensive, run once)
-- **Script 2**: Generate signed URLs from Actor default stores (cheap, can retry)
+- **Script 2**: Generate signed URLs from the saved dataset ID (cheap, can retry)
 
 **Script 1: Run Actor and Process Results**
 
@@ -445,10 +467,15 @@ async function main() {
     const { items } = await client.dataset(run.defaultDatasetId).listItems();
     const processedResults = items.map(item => ({...}));  // Extract needed fields
 
-    // Save processed results to file
-    await fs.writeFile('/sandbox/js-ts/results.json', JSON.stringify(processedResults, null, 2));
+    // Push processed results to a new unnamed dataset
+    // (if you don't need processing, skip this and save run.defaultDatasetId instead)
+    const { id: outputDatasetId } = await client.datasets().getOrCreate();
+    await client.dataset(outputDatasetId).pushItems(processedResults);
 
-    console.log(`✅ Processed ${processedResults.length} items → /sandbox/js-ts/results.json`);
+    // Save the dataset ID for Script 2
+    await fs.writeFile('/sandbox/js-ts/output.json', JSON.stringify({ datasetId: outputDatasetId }));
+
+    console.log(`✅ Pushed ${processedResults.length} items to dataset ${outputDatasetId}`);
     console.log('Now run: node 2_generate_urls.js');
 }
 
@@ -459,19 +486,19 @@ main().catch(console.error);
 
 ```javascript
 // File: /sandbox/js-ts/2_generate_urls.js
-// See "Generate Public URL" section for datasets above
+// See "Datasets" section above
 
 import { ApifyClient } from 'apify-client';
+import fs from 'fs/promises';
 
 const client = new ApifyClient({ token: process.env.APIFY_TOKEN });
 
 async function main() {
-    // 🚨 CRITICAL: Use ACTOR_DEFAULT_DATASET_ID environment variable
-    const datasetId = process.env.ACTOR_DEFAULT_DATASET_ID;
-    const dataset = client.dataset(datasetId);
+    // Read the dataset ID saved by Script 1
+    const { datasetId } = JSON.parse(await fs.readFile('/sandbox/js-ts/output.json', 'utf8'));
 
     // Generate signed public URL (NO parameters)
-    const publicUrl = await dataset.createItemsPublicUrl();
+    const publicUrl = await client.dataset(datasetId).createItemsPublicUrl();
 
     console.log('🔗 SIGNED PUBLIC URL:');
     console.log(publicUrl);
@@ -501,19 +528,9 @@ cd /sandbox/js-ts && node 2_generate_urls.js
 - **Output schema from README** - Actor README documents output structure, use it to know which fields to extract
 - **Modular debugging** - Easier to identify and fix issues in smaller, focused scripts
 
-### Sharing Results with Apify CLI (Optional)
+### 🚨 Do NOT Use `apify actor push-data` / `apify actor set-value`
 
-After processing data with your script, you can push results to Apify storage:
-
-```bash
-# Push to dataset
-cat /sandbox/py/results.json | apify actor push-data
-
-# Upload to key-value store
-cat /sandbox/py/report.pdf | apify actor set-value report.pdf --content-type application/pdf
-```
-
-**🚨 IMPORTANT:** After uploading with CLI, you MUST generate signed public URLs in your script using `apify-client` (see examples above). The CLI upload alone does NOT provide shareable URLs.
+These CLI commands write to the sandbox Actor run's default storages, which are not available inside the sandbox (the `ACTOR_*` environment variables are not set). Always create your own output storage with `apify-client` as shown in [Sharing Files and Data with Users](#sharing-files-and-data-with-users).
 
 ## Best Practices
 
@@ -533,8 +550,8 @@ cat /sandbox/py/report.pdf | apify actor set-value report.pdf --content-type app
 ### Actor Usage - Split Script Strategy
 
 - **🚨 CRITICAL: Use TWO separate scripts** - Split expensive Actor runs from cheap URL generation
-    - **Script 1**: Run Actor + save data to file (expensive, run once)
-    - **Script 2**: Generate signed URLs from saved file (cheap, can retry)
+    - **Script 1**: Run Actor + push results to a new dataset, save its ID to a file (expensive, run once)
+    - **Script 2**: Generate signed URLs from the saved dataset ID (cheap, can retry)
     - **Why?** Running Actors is expensive and slow. If URL generation fails, you can fix and re-run just Script 2 without re-running the Actor
 - **Read Actor README first** - Output schema is documented there, use it to understand data structure
 - **Use script-based approach for Actors** - Write Python or JS scripts with apify-client instead of calling via MCP
@@ -550,13 +567,13 @@ cat /sandbox/py/report.pdf | apify actor set-value report.pdf --content-type app
 ### Data Storage & Sharing
 
 - **🚨 CRITICAL: ALWAYS generate signed public URLs** when sharing data with users
-- **🚨 CRITICAL: Use ACTOR_DEFAULT_DATASET_ID and ACTOR_DEFAULT_KEY_VALUE_STORE_ID** environment variables to get store clients
+- **🚨 CRITICAL: Create your own output storage** with `get_or_create()` (Python) or `getOrCreate()` (JS) — the sandbox run's default storages and `ACTOR_*` env vars are not available
 - **🚨 CRITICAL: Call URL methods with NO parameters** - Just call `.get_record_public_url(key)` or `.create_items_public_url()`
 - **NEVER return raw storage IDs or API URLs** - they require authentication and won't work
 - Use `get_record_public_url(key)` (Python) or `getRecordPublicUrl(key)` (JS) for KV store records
 - Use `create_items_public_url()` (Python) or `createItemsPublicUrl()` (JS) for datasets
 - Choose right storage: JSON → Datasets, Files → Key-Value Stores
-- Clean up temporary stores/datasets when done
+- Don't delete storages whose public URLs you shared — the URLs would stop working
 
 ## Resources
 
