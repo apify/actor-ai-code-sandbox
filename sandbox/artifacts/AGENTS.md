@@ -109,8 +109,7 @@ Pre-configured and ready:
 - **jq** for JSON processing
 - **Environment variables:**
     - **`APIFY_TOKEN`** - API authentication token
-    - **`ACTOR_DEFAULT_DATASET_ID`** - Default dataset ID for this Actor
-    - **`ACTOR_DEFAULT_KEY_VALUE_STORE_ID`** - Default key-value store ID for this Actor
+    - Other Apify platform variables (`ACTOR_*`, e.g. default storage IDs) are only set if the sandbox was started with **Pass Apify platform environment variables** enabled
 
 ### 🚨 CRITICAL: APIFY_TOKEN Already Available in Environment
 

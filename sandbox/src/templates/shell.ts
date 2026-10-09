@@ -79,6 +79,21 @@ echo -e "  - Git repo:      https://github.com/apify/actor-ai-code-sandbox"
 echo ""
 `;
 
+/** Run details shown in the welcome banner (see WELCOME_SCRIPT). */
+const WELCOME_ENV_KEYS = ['ACTOR_MEMORY_MBYTES', 'ACTOR_WEB_SERVER_URL', 'ACTOR_RUN_ID'];
+
+const shellQuote = (value: string): string => `'${value.replace(/'/g, `'\\''`)}'`;
+
+/**
+ * Welcome script with the run details baked in from `env`, so the banner can
+ * show them even when the Apify platform env vars are stripped from the shell.
+ */
+export const buildWelcomeScript = (env: NodeJS.ProcessEnv): string => {
+    const [shebang, ...rest] = WELCOME_SCRIPT.split('\n');
+    const assignments = WELCOME_ENV_KEYS.map((key) => `${key}=${shellQuote(env[key] ?? '')}`);
+    return [shebang, ...assignments, ...rest].join('\n');
+};
+
 /**
  * Custom BashRC Template
  */

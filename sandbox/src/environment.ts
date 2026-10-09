@@ -16,6 +16,7 @@ import {
     PYTHON_VENV_DIR,
     SANDBOX_DIR,
 } from './consts.js';
+import { stripPlatformEnvVars } from './env-vars.js';
 import { setStatusMessage } from './status.js';
 
 const execAsync = promisify(exec);
@@ -394,13 +395,31 @@ export const setUserEnvVars = (vars: Record<string, string>): void => {
 export const getUserEnvVars = (): Record<string, string> => ({ ...userEnvVars });
 
 /**
+ * Whether Apify platform env vars (storage IDs, run metadata, ...) reach the
+ * sandbox. APIFY_TOKEN is always passed. Off by default; set from the `passPlatformEnvVars` input.
+ */
+let passPlatformEnvVars = false;
+
+export const setPassPlatformEnvVars = (pass: boolean): void => {
+    passPlatformEnvVars = pass;
+};
+
+/**
+ * Base environment for everything running inside the sandbox (init script,
+ * code execution, shell): the Actor's process env, minus the Apify platform
+ * variables (except APIFY_TOKEN) unless `passPlatformEnvVars` is enabled.
+ */
+export const getSandboxBaseEnvironment = (): NodeJS.ProcessEnv =>
+    passPlatformEnvVars ? { ...process.env } : stripPlatformEnvVars(process.env);
+
+/**
  * Get environment variables for code execution
  * Returns environment with paths to Python venv and Node modules
  */
 export const getExecutionEnvironment = (): NodeJS.ProcessEnv => {
-    // Layer user-supplied vars over the process env, before our infra paths so
-    // the sandbox PATH/NODE_PATH/VIRTUAL_ENV/PYTHONHOME below always win.
-    const env: NodeJS.ProcessEnv = { ...process.env, ...userEnvVars };
+    // Layer user-supplied vars over the sandbox base env, before our infra paths
+    // so the sandbox PATH/NODE_PATH/VIRTUAL_ENV/PYTHONHOME below always win.
+    const env: NodeJS.ProcessEnv = { ...getSandboxBaseEnvironment(), ...userEnvVars };
 
     // Add Python venv to PATH
     const currentPath = env.PATH || '';

@@ -27,9 +27,10 @@ import type { Express, Request, Response } from 'express';
 import httpProxy from 'http-proxy';
 
 import { SANDBOX_DIR } from './consts.js';
+import { getSandboxBaseEnvironment } from './environment.js';
 import { touchActivity } from './idle.js';
 import { translateLaunchParam } from './shell-launch.js';
-import { injectTerminalReconnectScript, SANDBOX_BASHRC, WELCOME_SCRIPT } from './templates/shell.js';
+import { buildWelcomeScript, injectTerminalReconnectScript, SANDBOX_BASHRC } from './templates/shell.js';
 import {
     appendTtydOutput,
     buildShellUnavailableMessage,
@@ -56,7 +57,7 @@ const writeShellFiles = (): void => {
     try {
         log.info('Writing shell environment files...');
         mkdirSync('/app', { recursive: true });
-        writeFileSync('/app/welcome.sh', WELCOME_SCRIPT);
+        writeFileSync('/app/welcome.sh', buildWelcomeScript(process.env));
         chmodSync('/app/welcome.sh', 0o755);
         writeFileSync('/app/sandbox_bashrc', SANDBOX_BASHRC);
         log.info('Shell environment files written successfully');
@@ -75,7 +76,7 @@ const spawnTtyd = (): void => {
     const ttyd = spawn('ttyd', ['-p', SHELL_PORT.toString(), '-a', '-W', 'bash', '--rcfile', '/app/sandbox_bashrc'], {
         stdio: ['ignore', 'pipe', 'pipe'],
         cwd: SANDBOX_DIR,
-        env: { ...process.env },
+        env: getSandboxBaseEnvironment(),
     });
 
     // Keep only the tail of ttyd's output — its startup/error messages are short.

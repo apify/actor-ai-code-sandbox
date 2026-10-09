@@ -17,7 +17,7 @@ import express from 'express';
 import { bridgeRequestHandler, handleBridgeUpgrade, initializeBridgeProxies } from './bridge-proxy.js';
 import { initializeBridges } from './bridges.js';
 import { parseEnvVars } from './env-vars.js';
-import { executeInitScript, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
+import { executeInitScript, setPassPlatformEnvVars, setupExecutionEnvironment, setUserEnvVars } from './environment.js';
 import { configureIdleTimeout, getIdleTimeoutSecs, getRemainingSecs, startIdleMonitor, touchActivity } from './idle.js';
 import { configureAgentMcpServers } from './mcp-agent-config.js';
 import { writeMcpConfig } from './mcp-connections.js';
@@ -68,6 +68,10 @@ configureIdleTimeout(input?.idleTimeoutSecs);
 const userEnvVars = parseEnvVars(input?.envVars);
 setUserEnvVars(userEnvVars);
 
+// Apify platform env vars (storage IDs, run metadata, ...) except APIFY_TOKEN are
+// stripped from the sandbox unless the user opts in.
+setPassPlatformEnvVars(input?.passPlatformEnvVars ?? false);
+
 const nodeDependencies = parseNodeDependencies(input?.nodeDependencies);
 const skills = parseSkills(input?.agentSkills);
 
@@ -78,6 +82,7 @@ log.info('Actor input retrieved', {
     hasPythonRequirements: !!input?.pythonRequirements?.trim().length,
     hasInitScript: !!input?.initBashScript?.trim().length,
     envVarKeys: Object.keys(userEnvVars),
+    passPlatformEnvVars: input?.passPlatformEnvVars ?? false,
     mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
 });
 

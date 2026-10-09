@@ -51,6 +51,14 @@ export interface ActorInput {
     envVars?: string;
 
     /**
+     * Pass the Apify platform environment variables (ACTOR_* storage IDs, run
+     * metadata, ...) to the sandbox: init script, shell, and code execution.
+     * APIFY_TOKEN is always passed.
+     * @default false
+     */
+    passPlatformEnvVars?: boolean;
+
+    /**
      * Graceful shutdown timeout in seconds if no activity is detected.
      * Activity includes HTTP requests and shell interaction.
      * @default 900 (15 minutes)
