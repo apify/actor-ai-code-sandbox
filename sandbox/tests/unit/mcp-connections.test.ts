@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { APIFY_MCP_URL, buildMcpConfig } from '../../src/mcp-connections.js';
+import { APIFY_MCP_URL, buildMcpConfig, repointMcpcSessions } from '../../src/mcp-connections.js';
 
 const PROXY = 'https://api.apify.com/v2/mcp-proxy';
 
@@ -95,5 +95,48 @@ describe('buildMcpConfig', () => {
             // URL preserves the original ID so the proxy can route correctly
             assert.equal(config.mcpServers.conn_abc_xyz.url, `${PROXY}/conn@abc/xyz`);
         });
+    });
+});
+
+describe('repointMcpcSessions', () => {
+    const OLD = 'http://10.0.86.231:8012';
+    const NEW = 'http://10.0.84.40:8012';
+
+    it('moves sessions on the old proxy to the new one and drops their MCP session ID', () => {
+        const storage = {
+            sessions: {
+                '@notion': { server: { url: `${OLD}/~notion-xxx` }, mcpSessionId: 'abc' },
+                '@apify': { server: { url: 'https://mcp.apify.com' }, mcpSessionId: 'keep' },
+            },
+        };
+        assert.deepEqual(repointMcpcSessions(storage, OLD, NEW), ['@notion']);
+        assert.deepEqual(storage.sessions['@notion'], { server: { url: `${NEW}/~notion-xxx` } });
+        assert.deepEqual(storage.sessions['@apify'], {
+            server: { url: 'https://mcp.apify.com' },
+            mcpSessionId: 'keep',
+        });
+    });
+
+    it('ignores trailing slashes on either base URL', () => {
+        const storage = { sessions: { '@a': { server: { url: `${OLD}/conn` } } } };
+        repointMcpcSessions(storage, `${OLD}/`, `${NEW}//`);
+        assert.equal(storage.sessions['@a'].server.url, `${NEW}/conn`);
+    });
+
+    it('does not match a URL that merely shares a prefix with the old base', () => {
+        const storage = { sessions: { '@a': { server: { url: `${OLD}9/conn` } } } };
+        assert.deepEqual(repointMcpcSessions(storage, OLD, NEW), []);
+        assert.equal(storage.sessions['@a'].server.url, `${OLD}9/conn`);
+    });
+
+    it('changes nothing when the proxy URL did not change', () => {
+        const storage = { sessions: { '@a': { server: { url: `${OLD}/conn` }, mcpSessionId: 'x' } } };
+        assert.deepEqual(repointMcpcSessions(storage, OLD, OLD), []);
+        assert.equal(storage.sessions['@a'].mcpSessionId, 'x');
+    });
+
+    it('tolerates sessions without a server URL', () => {
+        const storage = { sessions: { '@stdio': {}, '@b': { server: {} } } };
+        assert.deepEqual(repointMcpcSessions(storage, OLD, NEW), []);
     });
 });

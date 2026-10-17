@@ -11,8 +11,9 @@
 
 /* eslint-disable no-template-curly-in-string -- ${APIFY_TOKEN} is a literal placeholder we write to mcp.json, not a JS template expression */
 
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 
 import { log } from 'apify';
 
@@ -113,4 +114,68 @@ export const writeMcpConfig = (connectionIds: string[] | undefined): McpConfig =
     }
 
     return config;
+};
+
+/** mcpc's session registry; honours MCPC_HOME_DIR like mcpc itself does. */
+export const getMcpcSessionsPath = (): string =>
+    join(process.env.MCPC_HOME_DIR || join(homedir(), '.mcpc'), 'sessions.json');
+
+interface McpcSessionsFile {
+    sessions?: Record<string, { server?: { url?: string }; mcpSessionId?: string }>;
+}
+
+/**
+ * Point mcpc sessions that still use the previous host's proxy URL at the
+ * current one. Returns the names of the sessions it changed.
+ *
+ * The proxy base URL embeds the host IP, so it changes when the platform
+ * migrates the run, while ~/.mcpc/sessions.json comes back from the migration
+ * tarball with the old URL baked in — mcpc would then keep reconnecting to a
+ * host that is gone. The stored MCP-Session-Id is dropped too: it was issued
+ * by the old proxy, and replaying it would get the session marked expired.
+ */
+export const repointMcpcSessions = (
+    storage: McpcSessionsFile,
+    previousProxyUrl: string,
+    currentProxyUrl: string,
+): string[] => {
+    const from = `${previousProxyUrl.replace(/\/+$/, '')}/`;
+    const to = `${currentProxyUrl.replace(/\/+$/, '')}/`;
+    const changed: string[] = [];
+    if (from === to) return changed;
+
+    for (const [name, session] of Object.entries(storage.sessions ?? {})) {
+        const server = session?.server;
+        if (typeof server?.url !== 'string' || !server.url.startsWith(from)) continue;
+        server.url = to + server.url.slice(from.length);
+        delete session.mcpSessionId;
+        changed.push(name);
+    }
+    return changed;
+};
+
+/**
+ * Apply repointMcpcSessions() to the mcpc sessions file on disk after a
+ * migration restore. Logs and swallows errors — a failure must not abort
+ * sandbox startup.
+ */
+export const repointMcpcSessionsFile = (previousProxyUrl: string | null | undefined): void => {
+    const currentProxyUrl = process.env.APIFY_MCP_PROXY_URL;
+    const path = getMcpcSessionsPath();
+    if (!previousProxyUrl || !currentProxyUrl || !existsSync(path)) return;
+
+    try {
+        const storage = JSON.parse(readFileSync(path, 'utf-8')) as McpcSessionsFile;
+        const changed = repointMcpcSessions(storage, previousProxyUrl, currentProxyUrl);
+        if (changed.length === 0) return;
+
+        writeFileSync(path, `${JSON.stringify(storage, null, 2)}\n`, { mode: 0o600 });
+        log.info('Repointed mcpc sessions to the new MCP proxy URL', {
+            sessions: changed,
+            from: previousProxyUrl,
+            to: currentProxyUrl,
+        });
+    } catch (error) {
+        log.error('Failed to repoint mcpc sessions', { path, error: (error as Error).message });
+    }
 };

@@ -86,15 +86,6 @@ log.info('Actor input retrieved', {
     mcpConnectorCount: input?.mcpConnectors?.length ?? 0,
 });
 
-// Write /sandbox/mcp.json with the configured MCP Connector proxies so
-// tools like `mcpc connect` find them as soon as the shell opens, then load the
-// same servers into Claude Code, Codex, and OpenCode so they appear as tools the
-// moment an agent launches (no `claude mcp add` / `mcpc connect` step needed).
-if (!isLocalMode) {
-    const mcpConfig = writeMcpConfig(input?.mcpConnectors);
-    configureAgentMcpServers(mcpConfig);
-}
-
 // Check for migration state and restore if available
 let restoredFromMigration = false;
 if (!isLocalMode) {
@@ -104,6 +95,17 @@ if (!isLocalMode) {
     if (restoredFromMigration) {
         log.info('Successfully restored from migration state');
     }
+}
+
+// Write /sandbox/mcp.json with the configured MCP Connector proxies so
+// tools like `mcpc connect` find them as soon as the shell opens, then load the
+// same servers into Claude Code, Codex, and OpenCode so they appear as tools the
+// moment an agent launches (no `claude mcp add` / `mcpc connect` step needed).
+// This runs after the migration restore so the restored copies of these files,
+// which carry the previous host's proxy URL, are overwritten with the current one.
+if (!isLocalMode) {
+    const mcpConfig = writeMcpConfig(input?.mcpConnectors);
+    configureAgentMcpServers(mcpConfig);
 }
 
 // Setup execution environment with dependencies (skip if restored from migration)
