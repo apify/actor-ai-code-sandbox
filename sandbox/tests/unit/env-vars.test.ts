@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 
-import { parseEnvVars } from '../../src/env-vars.js';
+import { isPlatformEnvVar, parseEnvVars, stripPlatformEnvVars } from '../../src/env-vars.js';
 
 describe('parseEnvVars', () => {
     describe('empty / nullish input', () => {
@@ -111,5 +111,39 @@ describe('parseEnvVars', () => {
         it('treats input not starting with `{` as dotenv', () => {
             assert.deepEqual(parseEnvVars('FOO=bar'), { FOO: 'bar' });
         });
+    });
+});
+
+describe('stripPlatformEnvVars', () => {
+    it('removes APIFY_* and ACTOR_* variables except APIFY_TOKEN and keeps the rest', () => {
+        const env = {
+            APIFY_TOKEN: 'secret',
+            APIFY_PROXY_PASSWORD: 'secret',
+            ACTOR_DEFAULT_KEY_VALUE_STORE_ID: 'kvs',
+            ACTOR_RUN_ID: 'run',
+            PATH: '/usr/bin',
+            HOME: '/root',
+            MY_APIFY_THING: 'kept',
+        };
+        assert.deepEqual(stripPlatformEnvVars(env), {
+            APIFY_TOKEN: 'secret',
+            PATH: '/usr/bin',
+            HOME: '/root',
+            MY_APIFY_THING: 'kept',
+        });
+    });
+
+    it('does not mutate the input', () => {
+        const env = { ACTOR_RUN_ID: 'run' };
+        stripPlatformEnvVars(env);
+        assert.deepEqual(env, { ACTOR_RUN_ID: 'run' });
+    });
+
+    it('matches prefixes case-sensitively and exempts APIFY_TOKEN', () => {
+        assert.equal(isPlatformEnvVar('APIFY_TOKEN'), false);
+        assert.equal(isPlatformEnvVar('APIFY_PROXY_PASSWORD'), true);
+        assert.equal(isPlatformEnvVar('ACTOR_ID'), true);
+        assert.equal(isPlatformEnvVar('apify_token'), false);
+        assert.equal(isPlatformEnvVar('APIFY'), false);
     });
 });
