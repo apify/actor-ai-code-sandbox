@@ -8,7 +8,7 @@ Clears your inbox, sends emails, manages your calendar, checks you in for flight
 
 ## ⚙️ How It Works
 
-This Actor [metamorphs](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the [AI Sandbox](https://apify.com/apify/ai-sandbox) and automatically launches OpenClaw TUI in the terminal.
+This Actor [metamorphs](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the [AI Sandbox](https://apify.com/apify/ai-code-sandbox) and automatically launches OpenClaw TUI in the terminal.
 
 On startup, it:
 1. Installs OpenClaw globally via npm
@@ -29,7 +29,7 @@ On startup, it:
 |-------|-------------|---------|
 | `agentSkills` | Skill packages to install (SKILLS.md files), one per line or JSON array | - |
 | `initBashScript` | Bash script to run before OpenClaw starts | - |
-| `idleTimeoutSeconds` | Shutdown after inactivity (0 = disabled) | 0 |
+| `idleTimeoutSecs` | Shutdown after inactivity (0 = disabled) | 0 |
 
 ## 📚 Skills Support
 
@@ -43,5 +43,5 @@ This Actor supports [SKILLS.md](https://skills.sh/) files - specialized instruct
 
 ## 🔗 Links
 
-- [AI Sandbox](https://apify.com/apify/ai-sandbox)
+- [AI Sandbox](https://apify.com/apify/ai-code-sandbox)
 - [Apify OpenRouter](https://apify.com/apify/openrouter)

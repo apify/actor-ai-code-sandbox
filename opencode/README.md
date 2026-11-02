@@ -12,7 +12,7 @@ OpenCode is an open-source AI coding agent with:
 
 ## ⚙️ How It Works
 
-This Actor [metamorphs](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the [AI Sandbox](https://apify.com/apify/ai-sandbox) and automatically launches OpenCode in the terminal.
+This Actor [metamorphs](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the [AI Sandbox](https://apify.com/apify/ai-code-sandbox) and automatically launches OpenCode in the terminal.
 
 ## 🚀 Quick Start
 
@@ -26,7 +26,7 @@ This Actor [metamorphs](https://docs.apify.com/platform/actors/development/progr
 |-------|-------------|---------|
 | `agentSkills` | Skill packages to install (SKILLS.md files), one per line or JSON array | - |
 | `initBashScript` | Bash script to run before OpenCode starts | - |
-| `idleTimeoutSeconds` | Shutdown after inactivity | 900 |
+| `idleTimeoutSecs` | Shutdown after inactivity | 900 |
 
 ## 📚 Skills Support
 
@@ -42,4 +42,4 @@ This Actor supports [SKILLS.md](https://skills.sh/) files - specialized instruct
 
 - [OpenCode](https://opencode.ai)
 - [OpenCode GitHub](https://github.com/anomalyco/opencode)
-- [AI Sandbox](https://apify.com/apify/ai-sandbox)
+- [AI Sandbox](https://apify.com/apify/ai-code-sandbox)

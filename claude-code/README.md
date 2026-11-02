@@ -2,6 +2,8 @@
 
 Run [Claude Code](https://code.claude.com) on Apify infrastructure.
 
+Looking to connect Apify to Claude Code instead? Install the [Apify plugin for Claude Code](https://apify.com/plugin) or connect the [Apify MCP server](https://mcp.apify.com).
+
 ## 🔥 What is Claude Code?
 
 Claude Code is Anthropic's terminal-based AI coding assistant that can:
@@ -13,7 +15,7 @@ Claude Code is Anthropic's terminal-based AI coding assistant that can:
 
 ## ⚙️ How It Works
 
-This Actor [metamorphs](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the [AI Sandbox](https://apify.com/apify/ai-sandbox) and automatically launches Claude Code in the terminal.
+This Actor [metamorphs](https://docs.apify.com/platform/actors/development/programming-interface/metamorph) into the [AI Sandbox](https://apify.com/apify/ai-code-sandbox) and automatically launches Claude Code in the terminal.
 
 ## 🚀 Quick Start
 
@@ -27,7 +29,7 @@ This Actor [metamorphs](https://docs.apify.com/platform/actors/development/progr
 |-------|-------------|---------|
 | `agentSkills` | Skill packages to install (SKILLS.md files), one per line or JSON array | - |
 | `initBashScript` | Bash script to run before Claude Code starts | - |
-| `idleTimeoutSeconds` | Shutdown after inactivity | 900 |
+| `idleTimeoutSecs` | Shutdown after inactivity | 900 |
 
 ## 📚 Skills Support
 
@@ -43,4 +45,4 @@ This Actor supports [SKILLS.md](https://skills.sh/) files - specialized instruct
 
 - [Claude Code](https://code.claude.com)
 - [Claude Code Documentation](https://code.claude.com/docs/en/overview)
-- [AI Sandbox](https://apify.com/apify/ai-sandbox)
+- [AI Sandbox](https://apify.com/apify/ai-code-sandbox)

@@ -1,29 +1,15 @@
 import { Actor } from "apify";
 
+// Hardcoded rather than read from an env var: a stale env var in Console
+// (`apify/ai-sandbox`, since renamed) made every run fail with a 404.
+const SANDBOX_ACTOR_NAME = "apify/ai-code-sandbox";
+
 await Actor.init();
-
-// Get the target Actor name from environment variable
-const sandboxActorName = process.env.SANDBOX_ACTOR_NAME;
-
-if (!sandboxActorName) {
-  console.error(
-    "❌ Error: SANDBOX_ACTOR_NAME environment variable is not set.",
-  );
-  console.error(
-    "Please configure the SANDBOX_ACTOR_NAME environment variable with the Actor to metamorph into.",
-  );
-  console.error("Example: SANDBOX_ACTOR_NAME=apify/ai-sandbox");
-  await Actor.exit({
-    statusMessage: "Missing SANDBOX_ACTOR_NAME environment variable",
-  });
-  process.exit(0);
-}
 
 const input = await Actor.getInput();
 
-console.log(`🔄 Metamorphing into: ${sandboxActorName}`);
+console.log(`🔄 Metamorphing into: ${SANDBOX_ACTOR_NAME}`);
 
-// Metamorph into the configured Actor
-await Actor.metamorph(sandboxActorName, input);
+await Actor.metamorph(SANDBOX_ACTOR_NAME, input);
 
 // Code below won't execute after metamorph
