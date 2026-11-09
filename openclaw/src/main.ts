@@ -1,23 +1,10 @@
 import { Actor } from "apify";
 
+// Hardcoded rather than read from an env var: a stale env var in Console
+// (`apify/ai-sandbox`, since renamed) made every run fail with a 404.
+const SANDBOX_ACTOR_NAME = "apify/ai-code-sandbox";
+
 await Actor.init();
-
-// Get the target Actor name from environment variable
-const sandboxActorName = process.env.SANDBOX_ACTOR_NAME;
-
-if (!sandboxActorName) {
-  console.error(
-    "❌ Error: SANDBOX_ACTOR_NAME environment variable is not set.",
-  );
-  console.error(
-    "Please configure the SANDBOX_ACTOR_NAME environment variable with the Actor to metamorph into.",
-  );
-  console.error("Example: SANDBOX_ACTOR_NAME=apify/ai-sandbox");
-  await Actor.exit({
-    statusMessage: "Missing SANDBOX_ACTOR_NAME environment variable",
-  });
-  process.exit(0);
-}
 
 const input = await Actor.getInput<Record<string, unknown>>();
 
@@ -27,8 +14,9 @@ set -e
 #############################################
 # OpenClaw Unattended Docker Init Script
 #############################################
-# Install OpenClaw globally
-npm install -g openclaw@latest
+# Install OpenClaw globally. Pinned: releases from 2026.10.6 on require
+# Node >=26.12.1, newer than the Node in the published ai-code-sandbox image.
+npm install -g openclaw@2026.10.5
 # Create config directory
 mkdir -p ~/.openclaw
 # Write the configuration file
@@ -82,14 +70,10 @@ openclaw onboard \\
   --skip-health
 # Auto-approve all tool actions (YOLO) — safe inside the sandbox. The effective
 # policy is the stricter of two layers, so open both: the requested policy in
-# openclaw.json (tools.exec, set above) and the host-local approvals file below.
+# openclaw.json (tools.exec, set above) and the host approvals, which the preset
+# writes to OpenClaw's state DB. Don't write ~/.openclaw/exec-approvals.json:
+# OpenClaw treats it as legacy and refuses every agent turn while it exists.
 openclaw exec-policy preset yolo || true
-cat > ~/.openclaw/exec-approvals.json << 'APPROVEEOF'
-{
-  "version": 1,
-  "defaults": { "security": "full", "ask": "off", "askFallback": "full" }
-}
-APPROVEEOF
 nohup openclaw gateway run --bind loopback --port 18789 > /tmp/openclaw-gateway.log 2>&1 &
 sleep 3
 echo "OpenClaw started: http://127.0.0.1:18789/openclaw/"`;
@@ -106,9 +90,9 @@ const mergedInput = {
   initBashScript: combinedInitScript,
 };
 
-console.log(`🔄 Metamorphing into: ${sandboxActorName}`);
+console.log(`🔄 Metamorphing into: ${SANDBOX_ACTOR_NAME}`);
 
 // Metamorph into the configured Actor
-await Actor.metamorph(sandboxActorName, mergedInput);
+await Actor.metamorph(SANDBOX_ACTOR_NAME, mergedInput);
 
 // Code below won't execute after metamorph

@@ -1,8 +1,10 @@
 /* eslint-disable @typescript-eslint/no-floating-promises -- node:test's describe/it return promises by design */
 import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { describe, it } from 'node:test';
 
 import {
+    buildWelcomeScript,
     injectTerminalReconnectScript,
     RECONNECT_OVERLAY_SCRIPT,
     TERMINAL_DISCONNECT_MESSAGE,
@@ -56,5 +58,23 @@ describe('RECONNECT_OVERLAY_SCRIPT', () => {
     it('observes the document for overlay text changes', () => {
         assert.ok(RECONNECT_OVERLAY_SCRIPT.includes('MutationObserver'));
         assert.ok(RECONNECT_OVERLAY_SCRIPT.includes('childList: true'));
+    });
+});
+
+describe('buildWelcomeScript', () => {
+    it('keeps the shebang first and bakes in the run details', () => {
+        const script = buildWelcomeScript({ ACTOR_RUN_ID: 'abc123', ACTOR_MEMORY_MBYTES: '4096' });
+        const lines = script.split('\n');
+        assert.equal(lines[0], '#!/bin/bash');
+        assert.ok(lines.includes("ACTOR_RUN_ID='abc123'"));
+        assert.ok(lines.includes("ACTOR_MEMORY_MBYTES='4096'"));
+        assert.ok(lines.includes("ACTOR_WEB_SERVER_URL=''"));
+    });
+
+    it('shell-quotes values so they cannot inject commands', () => {
+        const script = buildWelcomeScript({ ACTOR_WEB_SERVER_URL: "x'; echo pwned; '" });
+        const line = script.split('\n').find((l) => l.startsWith('ACTOR_WEB_SERVER_URL='))!;
+        const out = execFileSync('bash', ['-c', `${line}; printf %s "$ACTOR_WEB_SERVER_URL"`]).toString();
+        assert.equal(out, "x'; echo pwned; '");
     });
 });

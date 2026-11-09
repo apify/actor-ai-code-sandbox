@@ -60,6 +60,12 @@
                 "editor": "textarea",
                 "isSecret": true
             },
+            "passPlatformEnvVars": {
+                "title": "Pass Apify platform environment variables to sandbox",
+                "type": "boolean",
+                "description": "If enabled, the [Apify platform environment variables](https://docs.apify.com/actors/development/programming-interface/environment-variables) (all `APIFY_*` and `ACTOR_*`, e.g. the default storage IDs and run ID) are passed to the setup script, shell, and code execution. By default they are removed, so code in the sandbox doesn't learn the IDs of the run's storages (e.g. the one used for filesystem persistence).\n\n`APIFY_TOKEN` is always passed, so the pre-configured coding agents, MCP servers, and calls to other Actors work either way.",
+                "default": false
+            },
             "idleTimeoutSecs": {
                 "title": "Idle timeout",
                 "type": "integer",

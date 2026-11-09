@@ -78,3 +78,28 @@ export const parseEnvVars = (raw: string | undefined | null): Record<string, str
     if (!trimmed) return {};
     return trimmed.startsWith('{') ? parseJsonObject(trimmed) : parseDotenv(trimmed);
 };
+
+/**
+ * Prefixes of the environment variables the Apify platform sets for an Actor
+ * run (see https://docs.apify.com/actors/development/programming-interface/environment-variables):
+ * storage IDs, run/build metadata, proxy credentials, etc.
+ */
+const PLATFORM_ENV_PREFIXES = ['APIFY_', 'ACTOR_'];
+
+/**
+ * Platform variables always passed to the sandbox. APIFY_TOKEN authenticates
+ * the pre-configured coding agents, MCP servers, and calls to other Actors.
+ */
+const ALWAYS_PASSED_PLATFORM_ENV_VARS = new Set(['APIFY_TOKEN']);
+
+export const isPlatformEnvVar = (key: string): boolean =>
+    !ALWAYS_PASSED_PLATFORM_ENV_VARS.has(key) && PLATFORM_ENV_PREFIXES.some((prefix) => key.startsWith(prefix));
+
+/**
+ * Return a copy of `env` without the Apify platform variables (except
+ * APIFY_TOKEN), so code running in the sandbox doesn't get the run's storage
+ * IDs (e.g. the key-value store backing filesystem persistence) and other
+ * platform internals.
+ */
+export const stripPlatformEnvVars = (env: NodeJS.ProcessEnv): NodeJS.ProcessEnv =>
+    Object.fromEntries(Object.entries(env).filter(([key]) => !isPlatformEnvVar(key)));

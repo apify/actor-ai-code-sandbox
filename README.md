@@ -33,9 +33,9 @@ The **Claude Code** and **OpenCode** Actors are lightweight proxies that [metamo
 
 ### Use on Apify Platform
 
-1. **AI Sandbox**: [Run on Apify](https://apify.com/apify/ai-sandbox) - Full sandbox with API access
-2. **Claude Code**: [Run on Apify](https://apify.com/apify/claude-code) - Auto-opens Claude Code CLI
-3. **OpenCode**: [Run on Apify](https://apify.com/apify/opencode) - Auto-opens OpenCode CLI
+1. **AI Sandbox**: [Run on Apify](https://apify.com/apify/ai-code-sandbox) - Full sandbox with API access
+2. **Claude Code**: [Run on Apify](https://apify.com/agentify/claude-code) - Auto-opens Claude Code CLI
+3. **OpenCode**: [Run on Apify](https://apify.com/agentify/opencode) - Auto-opens OpenCode CLI
 
 ### Connect to a Running Sandbox
 
