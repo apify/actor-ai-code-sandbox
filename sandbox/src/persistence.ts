@@ -21,6 +21,7 @@ import {
     PYTHON_BIN_DIR,
     STARTUP_MARKER_PATH,
 } from './consts.js';
+import { repointMcpcSessionsFile } from './mcp-connections.js';
 
 const execAsync = promisify(exec);
 
@@ -42,6 +43,8 @@ export interface MigrationManifest {
     createdAt: string;
     actorRunId: string | null;
     startupTimestamp: number;
+    /** APIFY_MCP_PROXY_URL at save time; it embeds the host IP, so it changes across migrations. */
+    mcpProxyUrl?: string | null;
     packages: {
         apt: string[];
         pip: string[];
@@ -344,6 +347,7 @@ export const saveMigrationState = async (): Promise<void> => {
             createdAt: new Date().toISOString(),
             actorRunId: process.env.ACTOR_RUN_ID || null,
             startupTimestamp: statSync(STARTUP_MARKER_PATH).mtimeMs,
+            mcpProxyUrl: process.env.APIFY_MCP_PROXY_URL || null,
             packages,
             changedFiles: {
                 count: changedFiles.length,
@@ -557,6 +561,9 @@ export const restoreMigrationState = async (): Promise<boolean> => {
             });
 
             log.info('Tarball extracted successfully');
+
+            // Restored mcpc sessions still point at the old host's MCP proxy
+            repointMcpcSessionsFile(manifest.mcpProxyUrl);
         } else {
             log.info('No files to restore (empty tarball)');
         }
