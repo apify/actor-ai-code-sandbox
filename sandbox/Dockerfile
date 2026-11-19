@@ -108,8 +108,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #     0.7.0: a bare `mcpc connect` no longer expands ${VAR} in config files
 #     from the cwd, so /sandbox/mcp.json must be passed by name.
 ARG TSX_VERSION=4.23.15
-ARG APIFY_CLI_VERSION=1.10.0
-ARG MCPC_VERSION=0.7.0
+ARG APIFY_CLI_VERSION=1.13.0
+ARG MCPC_VERSION=0.8.0
 RUN npm install -g "tsx@${TSX_VERSION}" \
     && npm install -g --ignore-scripts "apify-cli@${APIFY_CLI_VERSION}" \
     && npm install -g "@apify/mcpc@${MCPC_VERSION}" \
