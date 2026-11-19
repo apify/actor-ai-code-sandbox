@@ -116,7 +116,7 @@ curl -X POST https://UNIQUE-ID.runs.apify.net/bridges \
 # Now reachable at https://UNIQUE-ID.runs.apify.net/myapp/
 ```
 
-Bridges can also be set via the `bridges` input or by writing `/sandbox/.bridges.json` (changes are picked up live). Longest-path matching and `Location`-header rewriting are automatic, and bridges persist across restarts.
+Bridges can also be set via the `bridges` input or by writing `/sandbox/.bridges.json` (changes are picked up live). Paths match on segment boundaries (`/app` serves `/app/x` but not `/application`), the longest match wins, and `Location` headers are rewritten automatically. Bridges persist across restarts. Paths are normalized (leading `/`, no trailing `/`), and `/`, `/fs`, `/exec`, `/mcp`, `/shell`, `/bridges`, `/health`, `/browse` and `/llms.txt` are reserved. The API rejects invalid bridges with 400; invalid entries in the file or input are skipped with a warning.
 
 ## Health & status — `/health`
 

@@ -20,6 +20,13 @@ describe('matchBridge', () => {
         assert.equal(matchBridge(bridges, '/app/public')?.path, '/app');
     });
 
+    it('matches only on a path-segment boundary', () => {
+        assert.equal(matchBridge(bridges, '/app')?.path, '/app');
+        assert.equal(matchBridge(bridges, '/app/')?.path, '/app');
+        assert.equal(matchBridge(bridges, '/application'), null);
+        assert.equal(matchBridge(bridges, '/app/administrator')?.path, '/app');
+    });
+
     it('returns null when nothing matches', () => {
         assert.equal(matchBridge(bridges, '/nope'), null);
         assert.equal(matchBridge([], '/app'), null);
